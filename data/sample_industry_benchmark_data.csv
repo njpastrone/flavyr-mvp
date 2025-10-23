@@ -1,0 +1,11 @@
+cuisine_type,dining_model,avg_ticket,covers,labor_cost_pct,food_cost_pct,table_turnover,sales_per_sqft,expected_customer_repeat_rate
+American,Full Service,35.0,200,30.0,30.0,2.2,650,0.4
+Italian,Casual Dining,42.0,230,32.0,31.0,2.0,700,0.43
+Mexican,Fast Casual,20.0,400,27.0,28.0,4.0,950,0.32
+Japanese,Full Service,50.0,180,35.0,34.0,1.8,850,0.45
+Vegetarian,Fast Casual,25.0,320,28.0,31.0,3.5,770,0.35
+American,Quick Service,15.0,600,26.0,33.0,5.0,1100,0.27
+Indian,Full Service,38.0,200,33.0,32.0,2.1,650,0.38
+Seafood,Casual Dining,48.0,210,34.0,33.0,2.0,760,0.41
+Mediterranean,Fast Casual,22.0,350,29.0,29.0,3.8,900,0.36
+Asian Fusion,Quick Service,18.0,500,27.0,32.0,4.6,1020,0.33
