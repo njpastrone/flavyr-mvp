@@ -152,7 +152,7 @@ def aggregate_daily_to_monthly(df: pd.DataFrame) -> pd.DataFrame:
         'cuisine_type': cuisine_type,
         'dining_model': dining_model,
         'avg_ticket': df['avg_ticket'].mean(),
-        'covers': int(df['covers'].sum()),  # Total covers
+        'covers': df['covers'].mean(),  # Average daily covers
         'labor_cost_pct': df['labor_cost_pct'].mean(),
         'food_cost_pct': df['food_cost_pct'].mean(),
         'table_turnover': df['table_turnover'].mean(),
