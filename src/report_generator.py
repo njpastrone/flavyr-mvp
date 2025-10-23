@@ -12,6 +12,14 @@ import pandas as pd
 class FlavyrReport(FPDF):
     """Custom PDF report class for FLAVYR."""
 
+    def __init__(self):
+        super().__init__()
+        # Set proper margins to prevent text overflow
+        self.set_left_margin(15)
+        self.set_right_margin(15)
+        self.set_top_margin(20)
+        self.set_auto_page_break(auto=True, margin=15)
+
     def header(self):
         """Add header to each page."""
         self.set_font('Arial', 'B', 16)
@@ -122,80 +130,87 @@ def export_to_pdf(analysis_results: Dict, recommendation_results: Dict, output_p
         analysis_results: Results from analyzer
         recommendation_results: Results from recommender
         output_path: Path to save PDF file
+
+    Raises:
+        Exception: If PDF generation fails
     """
-    pdf = FlavyrReport()
-    pdf.add_page()
+    try:
+        pdf = FlavyrReport()
+        pdf.add_page()
 
-    # Set up fonts
-    pdf.set_font('Arial', '', 10)
+        # Set up fonts
+        pdf.set_font('Arial', '', 10)
 
-    # Executive Summary
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'Executive Summary', 0, 1)
-    pdf.set_font('Arial', '', 10)
+        # Executive Summary
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Executive Summary', 0, 1)
+        pdf.set_font('Arial', '', 10)
 
-    cuisine = analysis_results['cuisine_type']
-    model = analysis_results['dining_model']
-    grade = analysis_results['performance_grade']
+        cuisine = analysis_results['cuisine_type']
+        model = analysis_results['dining_model']
+        grade = analysis_results['performance_grade']
 
-    pdf.multi_cell(0, 6, f"Restaurant Type: {cuisine} - {model}")
-    pdf.multi_cell(0, 6, f"Overall Performance Grade: {grade}")
-    pdf.ln(5)
+        pdf.multi_cell(0, 6, f"Restaurant Type: {cuisine} - {model}")
+        pdf.multi_cell(0, 6, f"Overall Performance Grade: {grade}")
+        pdf.ln(5)
 
-    pdf.multi_cell(0, 6, "Top Performance Issues:")
-    pdf.multi_cell(0, 6, analysis_results['summary'])
-    pdf.ln(10)
+        pdf.multi_cell(0, 6, "Top Performance Issues:")
+        pdf.multi_cell(0, 6, analysis_results['summary'])
+        pdf.ln(10)
 
-    # KPI Comparison Table
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'KPI Comparison', 0, 1)
-    pdf.set_font('Arial', '', 9)
+        # KPI Comparison Table
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'KPI Comparison', 0, 1)
+        pdf.set_font('Arial', '', 9)
 
-    table_data = create_kpi_comparison_table(analysis_results)
+        table_data = create_kpi_comparison_table(analysis_results)
 
-    # Table header
-    col_widths = [60, 30, 30, 25, 35]
-    for i, header in enumerate(table_data[0]):
-        pdf.cell(col_widths[i], 8, header, 1, 0, 'C')
-    pdf.ln()
-
-    # Table rows
-    for row in table_data[1:]:
-        for i, cell in enumerate(row):
-            pdf.cell(col_widths[i], 8, str(cell), 1, 0, 'C')
+        # Table header
+        col_widths = [60, 30, 30, 25, 35]
+        for i, header in enumerate(table_data[0]):
+            pdf.cell(col_widths[i], 8, header, 1, 0, 'C')
         pdf.ln()
 
-    pdf.ln(10)
+        # Table rows
+        for row in table_data[1:]:
+            for i, cell in enumerate(row):
+                pdf.cell(col_widths[i], 8, str(cell), 1, 0, 'C')
+            pdf.ln()
 
-    # Recommendations
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'Deal Recommendations', 0, 1)
-    pdf.set_font('Arial', '', 10)
+        pdf.ln(10)
 
-    recommendations = recommendation_results['recommendations']
-    if recommendations:
-        for i, rec in enumerate(recommendations[:5], 1):
-            pdf.set_font('Arial', 'B', 11)
-            pdf.multi_cell(0, 6, f"{i}. {rec['business_problem']}")
-            pdf.set_font('Arial', '', 10)
+        # Recommendations
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Deal Recommendations', 0, 1)
+        pdf.set_font('Arial', '', 10)
 
-            # Split deal types if too long
-            deal_types = rec['deal_types']
-            if len(deal_types) > 80:
-                deal_types = deal_types[:80] + "..."
+        recommendations = recommendation_results['recommendations']
+        if recommendations:
+            for i, rec in enumerate(recommendations[:5], 1):
+                pdf.set_font('Arial', 'B', 11)
+                pdf.multi_cell(0, 6, f"{i}. {rec['business_problem']}")
+                pdf.set_font('Arial', '', 10)
 
-            pdf.multi_cell(0, 5, f"Suggested Deals: {deal_types}")
+                # Split deal types if too long
+                deal_types = rec['deal_types']
+                if len(deal_types) > 80:
+                    deal_types = deal_types[:80] + "..."
 
-            # Split rationale if too long
-            rationale = rec['rationale']
-            pdf.multi_cell(0, 5, f"Rationale: {rationale}")
-            pdf.ln(5)
-    else:
-        pdf.multi_cell(0, 6, "Your performance is strong across all metrics.")
+                pdf.multi_cell(0, 5, f"Suggested Deals: {deal_types}")
 
-    # Save PDF
-    pdf.output(output_path)
+                # Split rationale if too long
+                rationale = rec['rationale']
+                pdf.multi_cell(0, 5, f"Rationale: {rationale}")
+                pdf.ln(5)
+        else:
+            pdf.multi_cell(0, 6, "Your performance is strong across all metrics.")
+
+        # Save PDF
+        pdf.output(output_path)
+
+    except Exception as e:
+        raise Exception(f"PDF generation failed: {str(e)}. Please try HTML format or contact support.")
 
 
 def export_to_html(analysis_results: Dict, recommendation_results: Dict) -> str:

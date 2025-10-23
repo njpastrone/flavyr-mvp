@@ -1,0 +1,23 @@
+{
+  "name": "flavyr-mvp",
+  "version": "1.0.0",
+  "description": "Phase 1 MVP: Benchmark comparison, gap analysis, and deal recommendations.",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/njpastrone/flavyr-mvp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/njpastrone/flavyr-mvp/issues"
+  },
+  "homepage": "https://github.com/njpastrone/flavyr-mvp#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.9.1"
+  }
+}

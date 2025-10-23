@@ -98,7 +98,7 @@ def upload_page():
 
         # Process button
         if st.button("Process Data", type="primary"):
-            with st.spinner("Processing..."):
+            with st.spinner("Processing your restaurant data..."):
                 # Aggregate data
                 aggregated_df = aggregate_daily_to_monthly(df)
 
@@ -128,8 +128,9 @@ def upload_page():
                 recommendation_results = generate_recommendations(analysis_results, deal_bank_df)
                 st.session_state.recommendation_results = recommendation_results
 
-                st.success("Data processed successfully! Go to Dashboard to view results.")
-                st.balloons()
+            st.success("Data processed successfully!")
+            st.info("Navigate to the Dashboard page using the sidebar to view your results.")
+            st.balloons()
 
 
 def dashboard_page():
@@ -137,7 +138,15 @@ def dashboard_page():
     st.title("Performance Dashboard")
 
     if st.session_state.analysis_results is None:
-        st.warning("Please upload data first on the Upload page.")
+        st.info("**Get Started with FLAVYR**")
+        st.markdown("""
+        Upload your restaurant's POS data to see:
+        - Performance grade and KPI comparisons
+        - Gaps vs industry benchmarks
+        - Visual performance charts
+
+        Navigate to the **Upload** page using the sidebar to begin.
+        """)
         return
 
     analysis = st.session_state.analysis_results
@@ -198,35 +207,65 @@ def dashboard_page():
     # Gap visualization
     st.subheader("Performance Gaps")
 
-    # Prepare data for chart
-    kpi_names = [gaps[kpi]['kpi_name'] for kpi in gaps.keys()]
-    gap_values = [gaps[kpi]['gap_pct'] for kpi in gaps.keys()]
+    # Prepare data
+    kpi_list = []
+    for kpi_key, kpi_data in gaps.items():
+        kpi_list.append({
+            'kpi': kpi_data['kpi_name'],
+            'gap_pct': kpi_data['gap_pct']
+        })
 
-    # Color bars based on performance
-    colors = ['green' if gap >= 0 else 'red' for gap in gap_values]
+    df_gaps = pd.DataFrame(kpi_list)
 
-    # Create bar chart
-    fig = go.Figure(data=[
-        go.Bar(
-            x=gap_values,
-            y=kpi_names,
-            orientation='h',
-            marker=dict(color=colors),
-            text=[f"{gap:+.1f}%" for gap in gap_values],
-            textposition='auto',
+    # Separate normal gaps from outliers
+    outlier_threshold = 100  # +/- 100%
+    normal_gaps = df_gaps[df_gaps['gap_pct'].abs() < outlier_threshold]
+    outlier_gaps = df_gaps[df_gaps['gap_pct'].abs() >= outlier_threshold]
+
+    # Display normal gaps chart
+    if not normal_gaps.empty:
+        kpi_names = normal_gaps['kpi'].tolist()
+        gap_values = normal_gaps['gap_pct'].tolist()
+        colors = ['green' if gap >= 0 else 'red' for gap in gap_values]
+
+        fig = go.Figure(data=[
+            go.Bar(
+                x=gap_values,
+                y=kpi_names,
+                orientation='h',
+                marker=dict(color=colors),
+                text=[f"{gap:+.1f}%" for gap in gap_values],
+                textposition='auto',
+            )
+        ])
+
+        fig.update_layout(
+            title="Performance vs Industry Benchmark",
+            xaxis_title="Gap Percentage",
+            yaxis_title="KPI",
+            height=400,
+            showlegend=False,
+            xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black')
         )
-    ])
 
-    fig.update_layout(
-        title="Performance vs Industry Benchmark",
-        xaxis_title="Gap Percentage",
-        yaxis_title="KPI",
-        height=500,
-        showlegend=False,
-        xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black')
-    )
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(fig, use_container_width=True)
+    # Display outliers separately
+    if not outlier_gaps.empty:
+        st.info("**Exceptional Performance Metrics**")
+        st.markdown("These metrics show extreme variance from industry benchmarks:")
+
+        cols = st.columns(len(outlier_gaps))
+        for i, (idx, row) in enumerate(outlier_gaps.iterrows()):
+            with cols[i]:
+                delta_color = "normal" if row['gap_pct'] >= 0 else "inverse"
+                st.metric(
+                    row['kpi'],
+                    f"{row['gap_pct']:+.0f}%",
+                    "vs benchmark",
+                    delta_color=delta_color,
+                    help="This metric significantly exceeds typical industry range"
+                )
 
 
 def recommendations_page():
@@ -234,7 +273,12 @@ def recommendations_page():
     st.title("Deal Recommendations")
 
     if st.session_state.recommendation_results is None:
-        st.warning("Please upload data first on the Upload page.")
+        st.info("**Deal Recommendations**")
+        st.markdown("""
+        Get personalized deal suggestions based on your performance gaps.
+
+        Navigate to the **Upload** page to get started.
+        """)
         return
 
     rec_results = st.session_state.recommendation_results
@@ -277,7 +321,15 @@ def report_page():
     st.title("Performance Report")
 
     if st.session_state.analysis_results is None:
-        st.warning("Please upload data first on the Upload page.")
+        st.info("**Performance Reports**")
+        st.markdown("""
+        Generate comprehensive PDF and HTML reports with:
+        - Executive summary
+        - KPI comparison tables
+        - Deal recommendations
+
+        Navigate to the **Upload** page to begin.
+        """)
         return
 
     analysis = st.session_state.analysis_results
@@ -297,24 +349,30 @@ def report_page():
 
         if st.button("Generate PDF", type="primary"):
             with st.spinner("Generating PDF..."):
-                # Create temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                    export_to_pdf(analysis, recommendations, tmp_file.name)
+                try:
+                    # Create temporary file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                        export_to_pdf(analysis, recommendations, tmp_file.name)
 
-                    # Read the file
-                    with open(tmp_file.name, 'rb') as f:
-                        pdf_data = f.read()
+                        # Read the file
+                        with open(tmp_file.name, 'rb') as f:
+                            pdf_data = f.read()
 
-                    # Clean up
-                    os.unlink(tmp_file.name)
+                        # Clean up
+                        os.unlink(tmp_file.name)
 
-                # Download button
-                st.download_button(
-                    label="Download PDF Report",
-                    data=pdf_data,
-                    file_name=f"flavyr_report_{datetime.now().strftime('%Y%m%d')}.pdf",
-                    mime="application/pdf"
-                )
+                    # Download button
+                    st.download_button(
+                        label="Download PDF Report",
+                        data=pdf_data,
+                        file_name=f"flavyr_report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf"
+                    )
+                    st.success("PDF generated successfully!")
+
+                except Exception as e:
+                    st.error(f"PDF generation failed: {str(e)}")
+                    st.info("Please try the HTML format instead, or contact support.")
 
     with col2:
         st.subheader("HTML Report")
