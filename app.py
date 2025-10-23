@@ -20,7 +20,7 @@ from src.data_loader import (
     get_all_deal_bank_data
 )
 from src.analyzer import analyze_restaurant_performance
-from src.recommender import generate_recommendations
+from src.recommender import generate_recommendations, KPI_TO_PROBLEM
 from src.report_generator import export_to_pdf, export_to_html
 
 
@@ -290,18 +290,67 @@ def recommendations_page():
 
     st.divider()
 
-    # Recommendations
-    st.subheader("Recommended Actions")
-
+    # Get all ranked issues (top 3)
+    ranked_issues = analysis['ranked_issues'][:3]
     recommendations = rec_results['recommendations']
 
-    if not recommendations:
-        st.success("Your performance is strong across all metrics. No specific recommendations at this time.")
-        return
+    # Ensure we have recommendations for all top 3 issues
+    all_recommendations = []
 
-    # Display each recommendation
-    for i, rec in enumerate(recommendations, 1):
-        with st.expander(f"**{i}. {rec['business_problem']}**", expanded=(i <= 2)):
+    for kpi, kpi_data in ranked_issues:
+        # Find existing recommendation for this issue
+        existing_rec = None
+        for rec in recommendations:
+            if rec['business_problem'] == KPI_TO_PROBLEM.get(kpi):
+                existing_rec = rec
+                break
+
+        if existing_rec:
+            all_recommendations.append(existing_rec)
+        else:
+            # Create a generic recommendation for this gap
+            all_recommendations.append({
+                'business_problem': f"Improve {kpi_data['kpi_name']}",
+                'severity': kpi_data['gap_pct'],
+                'deal_types_list': [],
+                'deal_types': 'Review operational processes and industry best practices',
+                'rationale': f"Your {kpi_data['kpi_name']} is {abs(kpi_data['gap_pct']):.1f}% below industry benchmark. Consider analyzing this metric in detail to identify root causes."
+            })
+
+    # Separate into critical and other
+    critical_threshold = -15.0
+    critical_issues = [rec for rec in all_recommendations if rec['severity'] < critical_threshold]
+    other_issues = [rec for rec in all_recommendations if rec['severity'] >= critical_threshold]
+
+    # Always display Critical Issues section
+    st.subheader("Critical Issues")
+    st.markdown("Issues classified as >15% below benchmark")
+
+    if critical_issues:
+        for i, rec in enumerate(critical_issues, 1):
+            with st.expander(f"**{i}. {rec['business_problem']}**", expanded=True):
+                st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
+
+                st.markdown("**Suggested Deal Types:**")
+                deal_list = rec.get('deal_types_list', [])
+                if deal_list:
+                    for deal in deal_list:
+                        st.markdown(f"- {deal}")
+                else:
+                    st.markdown(rec['deal_types'])
+
+                st.markdown("**Rationale:**")
+                st.markdown(rec['rationale'])
+    else:
+        st.success("No critical issues identified. All metrics are within 15% of industry benchmarks.")
+
+    # Display Other Issues
+    if other_issues:
+        st.divider()
+        st.subheader("Other Areas for Improvement")
+
+        for i, rec in enumerate(other_issues, 1):
+            st.markdown(f"**{i}. {rec['business_problem']}**")
             st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
 
             st.markdown("**Suggested Deal Types:**")
@@ -314,6 +363,13 @@ def recommendations_page():
 
             st.markdown("**Rationale:**")
             st.markdown(rec['rationale'])
+
+            if i < len(other_issues):
+                st.divider()
+
+    # If no issues at all
+    if not critical_issues and not other_issues:
+        st.success("Your performance is strong across all metrics. No specific recommendations at this time.")
 
 
 def report_page():

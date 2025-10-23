@@ -240,3 +240,26 @@ A comprehensive UX analysis was conducted using a specialized Playwright-based U
 **Expected: 8.5/10** (improved from 7/10)
 
 All fixes follow FLAVYR principles: beginner-friendly, simple, Python-only, no emojis.
+
+### Additional UX Enhancements (October 23, 2025)
+
+#### Recommendations Page Restructure ✓
+**Problem:** Recommendations page didn't consistently show top 3 issues and lacked clear severity organization
+**Solution:**
+- Always display recommendations for top 3 performance gaps
+- Organize into two sections:
+  - **Critical Issues** (>15% below benchmark) - Expanded by default
+  - **Other Areas for Improvement** - Displayed in scrollable format with full details visible
+- Generate fallback recommendations for top 3 gaps without specific deal matches
+- Critical Issues section always visible with classification note
+- Removed dropdowns from "Other" section for better scannability
+
+**Changes Made:**
+- Modified `recommendations_page()` in `app.py`
+- Imported `KPI_TO_PROBLEM` mapping from recommender module
+- Enhanced recommendation display logic to ensure top 3 issues always shown
+
+**Impact:**
+- Users always see actionable recommendations for their top issues
+- Clear severity-based prioritization helps focus attention
+- Better information hierarchy and scannability
