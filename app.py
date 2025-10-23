@@ -85,7 +85,22 @@ def upload_page():
         # Show preview
         st.success("File validated successfully!")
         st.subheader("Data Preview")
-        st.dataframe(df.head(10), use_container_width=True)
+
+        # Format data for better display
+        df_display = df.head(10).copy()
+
+        # Format date column
+        if 'date' in df_display.columns:
+            df_display['date'] = pd.to_datetime(df_display['date']).dt.strftime('%Y-%m-%d')
+
+        # Round numeric columns to 2 decimals
+        numeric_cols = ['avg_ticket', 'labor_cost_pct', 'food_cost_pct', 'table_turnover',
+                        'sales_per_sqft', 'expected_customer_repeat_rate']
+        for col in numeric_cols:
+            if col in df_display.columns:
+                df_display[col] = df_display[col].round(2)
+
+        st.dataframe(df_display, use_container_width=True)
 
         # Show summary stats
         col1, col2, col3 = st.columns(3)
@@ -154,7 +169,13 @@ def dashboard_page():
     # Header
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Restaurant Type", f"{analysis['cuisine_type']} - {analysis['dining_model']}")
+        cuisine = analysis['cuisine_type']
+        dining = analysis['dining_model']
+        st.metric(
+            "Restaurant Type",
+            f"{cuisine} - {dining}",
+            help=f"Full type: {cuisine} - {dining}"
+        )
     with col2:
         st.metric("Performance Grade", analysis['performance_grade'])
     with col3:
@@ -167,6 +188,17 @@ def dashboard_page():
     st.subheader("KPI Performance")
 
     gaps = analysis['gaps']
+
+    # KPI help text definitions
+    kpi_help = {
+        'avg_ticket': 'Average dollar amount spent per customer visit. Higher values indicate customers are ordering more.',
+        'covers': 'Number of customers served during the period. Higher values indicate more traffic.',
+        'table_turnover': 'Number of times a table is used during a service period. Higher values indicate efficient table management.',
+        'sales_per_sqft': 'Revenue generated per square foot of restaurant space. Higher values indicate better space utilization.',
+        'labor_cost_pct': 'Labor costs as a percentage of total revenue. Lower values indicate better labor efficiency.',
+        'food_cost_pct': 'Food and beverage costs as a percentage of total revenue. Lower values indicate better cost management.',
+        'expected_customer_repeat_rate': 'Percentage of customers expected to return. Higher values indicate stronger customer loyalty.'
+    }
 
     # Create 2 rows of metrics
     row1_kpis = ['avg_ticket', 'covers', 'table_turnover', 'sales_per_sqft']
@@ -184,7 +216,8 @@ def dashboard_page():
                 data['kpi_name'],
                 f"{data['restaurant_value']:.2f}",
                 f"{gap_pct:+.1f}% vs benchmark",
-                delta_color=delta_color
+                delta_color=delta_color,
+                help=kpi_help.get(kpi, '')
             )
 
     # Row 2
@@ -199,7 +232,8 @@ def dashboard_page():
                 data['kpi_name'],
                 f"{data['restaurant_value']:.2f}",
                 f"{gap_pct:+.1f}% vs benchmark",
-                delta_color=delta_color
+                delta_color=delta_color,
+                help=kpi_help.get(kpi, '')
             )
 
     st.divider()

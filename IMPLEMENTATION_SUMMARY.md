@@ -263,3 +263,54 @@ All fixes follow FLAVYR principles: beginner-friendly, simple, Python-only, no e
 - Users always see actionable recommendations for their top issues
 - Clear severity-based prioritization helps focus attention
 - Better information hierarchy and scannability
+
+---
+
+### Medium & Low Priority UX Fixes (October 23, 2025)
+
+Following the comprehensive UX analysis, all remaining medium and low-priority issues have been addressed:
+
+#### Fix #5: Report Preview Markdown Rendering ✓
+**Status:** Verified - already using `st.markdown()` for proper formatting
+
+#### Fix #6: Restaurant Type Tooltip ✓
+**Problem:** Restaurant type truncated as "American - F..."
+**Solution:**
+- Added help tooltip to Restaurant Type metric
+- Displays full text on hover
+**Changes:** Modified dashboard_page() in `app.py` (lines 157-163)
+
+#### Fix #9: Data Preview Formatting ✓
+**Problem:** Inconsistent decimal precision and verbose date formats
+**Solution:**
+- Format dates as YYYY-MM-DD
+- Round all numeric columns to 2 decimal places
+- Applied to preview table before display
+**Changes:** Modified upload_page() in `app.py` (lines 89-103)
+
+#### Fix #10: KPI Help Text ✓
+**Problem:** No explanations for what KPIs mean
+**Solution:**
+- Created comprehensive help text dictionary for all 7 KPIs
+- Added help parameter to all metric cards
+- Explains what each metric measures and what direction is better
+**Changes:** Modified dashboard_page() in `app.py` (lines 192-237)
+
+**KPI Definitions Added:**
+- Average Ticket Size: Dollar amount per customer visit
+- Total Covers: Number of customers served
+- Table Turnover: Table usage frequency per service period
+- Sales per Sq Ft: Revenue per square foot
+- Labor Cost %: Labor costs as % of revenue
+- Food Cost %: Food/beverage costs as % of revenue
+- Customer Repeat Rate: Expected return customer percentage
+
+#### Fix #11: Success Message Navigation ✓
+**Status:** Verified - clear navigation guidance already in place
+
+#### Fix #8: Navigation Style
+**Status:** Deferred to Phase 2 - current radio button approach is clear and functional
+
+**Total Implementation Time:** ~35 minutes
+**Files Modified:** `app.py` only
+**Expected UX Rating:** 9.0/10 (up from 8.5/10)
