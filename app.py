@@ -47,6 +47,52 @@ if 'recommendation_results' not in st.session_state:
     st.session_state.recommendation_results = None
 
 
+def home_page():
+    """Home/Welcome page with introduction."""
+    st.title("Welcome to FLAVYR")
+
+    st.markdown("""
+    ### Restaurant Performance Diagnostic Platform
+
+    FLAVYR helps restaurants identify operational issues and receive targeted recommendations
+    based on industry benchmarks.
+
+    **How it works:**
+
+    1. **Upload Data** - Upload your restaurant's POS data in CSV format
+    2. **View Dashboard** - Compare your performance against industry benchmarks
+    3. **Get Recommendations** - Receive personalized deal suggestions to improve performance
+    4. **Export Reports** - Download comprehensive reports in PDF or HTML format
+
+    ---
+
+    ### Getting Started
+
+    Navigate to the **Upload Data** tab to begin analyzing your restaurant's performance.
+
+    **Required data format:**
+    - Daily POS data in CSV format
+    - Must include: date, cuisine_type, dining_model
+    - Key metrics: avg_ticket, covers, labor_cost_pct, food_cost_pct, table_turnover,
+      sales_per_sqft, expected_customer_repeat_rate
+
+    ---
+
+    ### What You'll Get
+
+    - Performance grade (A-F) based on industry benchmarks
+    - Detailed gap analysis for 7 key performance indicators
+    - Prioritized recommendations for improvement
+    - Downloadable reports for sharing with your team
+
+    """)
+
+    if st.session_state.analysis_results is not None:
+        st.success("You have data loaded. Navigate to Dashboard to view your results.")
+    else:
+        st.info("No data loaded yet. Go to Upload Data to get started.")
+
+
 def upload_page():
     """Page 1: Upload restaurant POS data."""
     st.title("Upload Restaurant Data")
@@ -506,30 +552,34 @@ def main():
     with col2:
         if st.session_state.analysis_results is not None:
             analysis = st.session_state.analysis_results
-            st.caption(f"✓ {analysis['cuisine_type']} | Grade: {analysis['performance_grade']}")
+            st.caption(f"Data loaded: {analysis['cuisine_type']} | Grade: {analysis['performance_grade']}")
         else:
             st.caption("No data loaded")
 
     st.divider()
 
-    # Horizontal tabs with icons
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📤 Upload Data",
-        "📊 Dashboard",
-        "💡 Recommendations",
-        "📄 Export Report"
+    # Horizontal tabs without emojis
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Home",
+        "Upload Data",
+        "Dashboard",
+        "Recommendations",
+        "Export Report"
     ])
 
     with tab1:
-        upload_page()
+        home_page()
 
     with tab2:
-        dashboard_page()
+        upload_page()
 
     with tab3:
-        recommendations_page()
+        dashboard_page()
 
     with tab4:
+        recommendations_page()
+
+    with tab5:
         report_page()
 
 

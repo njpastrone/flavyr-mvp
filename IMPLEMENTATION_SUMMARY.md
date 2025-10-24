@@ -328,14 +328,16 @@ Following the comprehensive UX analysis, all remaining medium and low-priority i
 - Created compact status bar in header
 
 **Implementation:**
-- Modified main() function in `app.py` (lines 498-533)
-- Replaced sidebar with 4 horizontal tabs:
-  - 📤 Upload Data
-  - 📊 Dashboard
-  - 💡 Recommendations
-  - 📄 Export Report
+- Modified main() function in `app.py` (lines 546-583)
+- Replaced sidebar with 5 horizontal tabs (no emojis per project principles):
+  - Home (new welcome page)
+  - Upload Data
+  - Dashboard
+  - Recommendations
+  - Export Report
 - Added header status bar showing restaurant type and grade
 - Two-column layout: title on left, dynamic status on right
+- Created home_page() function with platform introduction and getting started guide
 
 **Benefits:**
 - More modern, web-app-like interface
@@ -352,5 +354,12 @@ Following the comprehensive UX analysis, all remaining medium and low-priority i
 - All existing functionality intact
 - Empty states continue to work
 
-**Total Implementation Time:** 30 minutes
+**Revision (October 23, 2025):**
+- Removed emojis from tab headers (violated project principles)
+- Added Home/Welcome page as first tab
+- Provides clear introduction and getting started guide
+- Updated status bar to remove emoji checkmark
+
+**Total Implementation Time:** 45 minutes (including revision)
 **UX Rating Impact:** 9.0/10 → 9.5/10
+**Compliance:** Now fully aligned with FLAVYR principles (no emojis)
