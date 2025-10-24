@@ -497,36 +497,39 @@ def report_page():
 
 # Main app navigation
 def main():
-    """Main application with page navigation."""
+    """Main application with horizontal tab navigation."""
 
-    # Sidebar navigation
-    st.sidebar.title("FLAVYR Analytics")
+    # Header with status bar
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("FLAVYR Analytics")
+    with col2:
+        if st.session_state.analysis_results is not None:
+            analysis = st.session_state.analysis_results
+            st.caption(f"✓ {analysis['cuisine_type']} | Grade: {analysis['performance_grade']}")
+        else:
+            st.caption("No data loaded")
 
-    page = st.sidebar.radio(
-        "Navigation",
-        ["Upload", "Dashboard", "Recommendations", "Report"]
-    )
+    st.divider()
 
-    # Add some spacing
-    st.sidebar.divider()
+    # Horizontal tabs with icons
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📤 Upload Data",
+        "📊 Dashboard",
+        "💡 Recommendations",
+        "📄 Export Report"
+    ])
 
-    # Show current status
-    if st.session_state.analysis_results is not None:
-        st.sidebar.success("Data loaded")
-        analysis = st.session_state.analysis_results
-        st.sidebar.write(f"**Type:** {analysis['cuisine_type']}")
-        st.sidebar.write(f"**Grade:** {analysis['performance_grade']}")
-    else:
-        st.sidebar.info("No data loaded")
-
-    # Route to pages
-    if page == "Upload":
+    with tab1:
         upload_page()
-    elif page == "Dashboard":
+
+    with tab2:
         dashboard_page()
-    elif page == "Recommendations":
+
+    with tab3:
         recommendations_page()
-    elif page == "Report":
+
+    with tab4:
         report_page()
 
 
