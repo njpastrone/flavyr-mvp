@@ -22,6 +22,8 @@ from src.data_loader import (
 from src.analyzer import analyze_restaurant_performance
 from src.recommender import generate_recommendations, KPI_TO_PROBLEM
 from src.report_generator import export_to_pdf, export_to_html
+from src.transaction_analyzer import analyze_transactions, format_results_for_display
+from utils.transaction_validator import validate_transaction_csv, get_transaction_data_summary, prepare_transaction_data
 
 
 # Page configuration
@@ -45,6 +47,10 @@ if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
 if 'recommendation_results' not in st.session_state:
     st.session_state.recommendation_results = None
+if 'transaction_data' not in st.session_state:
+    st.session_state.transaction_data = None
+if 'transaction_analysis' not in st.session_state:
+    st.session_state.transaction_analysis = None
 
 
 def home_page():
@@ -541,6 +547,214 @@ def report_page():
     """)
 
 
+def transaction_insights_page():
+    """Page 5: Transaction-level analytics."""
+    st.title("Transaction Insights")
+
+    st.markdown("""
+    ### Granular Sales Analytics
+
+    Upload transaction-level data to get detailed insights:
+    - Slowest days by transactions and revenue
+    - Customer loyalty rate
+    - Average order value (AOV) analysis
+    - Best and worst selling items
+    - Day-specific tactical recommendations
+
+    **Required CSV format:**
+    - date, total, customer_id, item_name, day_of_week
+    """)
+
+    # File uploader
+    uploaded_file = st.file_uploader(
+        "Choose your transaction data CSV file",
+        type=['csv'],
+        help="Upload transaction-level data with required columns",
+        key="transaction_uploader"
+    )
+
+    if uploaded_file is not None:
+        # Show file info
+        st.info(f"File: {uploaded_file.name}")
+
+        # Load CSV
+        try:
+            df = pd.read_csv(uploaded_file)
+        except Exception as e:
+            st.error(f"Error reading CSV: {str(e)}")
+            return
+
+        # Validate
+        is_valid, error_message, warnings = validate_transaction_csv(df)
+
+        if not is_valid:
+            st.error(f"Validation failed: {error_message}")
+            return
+
+        # Show warnings if any
+        if warnings:
+            for warning in warnings:
+                st.warning(warning)
+
+        st.success("File validated successfully!")
+
+        # Show data summary
+        summary = get_transaction_data_summary(df)
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Transactions", summary['total_transactions'])
+        with col2:
+            st.metric("Unique Customers", summary['unique_customers'])
+        with col3:
+            st.metric("Unique Items", summary['unique_items'])
+        with col4:
+            st.metric("Date Range (days)", summary['date_range']['days'])
+
+        # Preview data
+        with st.expander("View Sample Data"):
+            st.dataframe(df.head(10), use_container_width=True)
+
+        # Analyze button
+        if st.button("Analyze Transactions", type="primary"):
+            with st.spinner("Analyzing transaction data..."):
+                # Prepare data
+                cleaned_df = prepare_transaction_data(df)
+
+                # Run analysis
+                results = analyze_transactions(cleaned_df)
+                formatted_results = format_results_for_display(results)
+
+                # Store in session state
+                st.session_state.transaction_data = cleaned_df
+                st.session_state.transaction_analysis = formatted_results
+
+            st.success("Analysis complete!")
+            st.balloons()
+
+    # Display results if available
+    if st.session_state.transaction_analysis is not None:
+        st.divider()
+        st.subheader("Analysis Results")
+
+        results = st.session_state.transaction_analysis
+
+        # Slowest Days
+        st.markdown("### Slowest Day Analysis")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**By Transaction Count**")
+            slowest_tx = results['Slowest Day (Transactions)']
+            st.metric(
+                "Slowest Day",
+                slowest_tx['Day'],
+                f"{slowest_tx['Transaction Count']} transactions"
+            )
+
+            # Show all days
+            with st.expander("View All Days"):
+                for day, count in slowest_tx['All Days'].items():
+                    st.text(f"{day}: {count} transactions")
+
+        with col2:
+            st.markdown("**By Revenue**")
+            slowest_rev = results['Slowest Day (Revenue)']
+            st.metric(
+                "Slowest Day",
+                slowest_rev['Day'],
+                slowest_rev['Revenue']
+            )
+
+            # Show all days
+            with st.expander("View All Days"):
+                for day, revenue in slowest_rev['All Days'].items():
+                    st.text(f"{day}: {revenue}")
+
+        st.divider()
+
+        # Customer Loyalty
+        st.markdown("### Customer Loyalty")
+        loyalty = results['Customer Loyalty']
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Loyalty Rate", loyalty['Loyalty Rate'])
+        with col2:
+            st.metric("Repeat Customers", loyalty['Repeat Customers'])
+        with col3:
+            st.metric("New Customers", loyalty['New Customers'])
+
+        # Loyalty chart
+        fig = go.Figure(data=[go.Pie(
+            labels=['Repeat Customers', 'New Customers'],
+            values=[loyalty['Repeat Customers'], loyalty['New Customers']],
+            hole=0.3
+        )])
+        fig.update_layout(title="Customer Distribution", height=300)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+
+        # Average Order Value
+        st.markdown("### Average Order Value (AOV)")
+        aov = results['Average Order Value']
+
+        st.metric("Overall AOV", aov['Overall AOV'])
+
+        # AOV by day chart
+        aov_by_day = aov['By Day of Week']
+        days = list(aov_by_day.keys())
+        values = [float(v.replace('$', '').replace(',', '')) for v in aov_by_day.values()]
+
+        fig = go.Figure(data=[go.Bar(
+            x=days,
+            y=values,
+            text=[f"${v:.2f}" for v in values],
+            textposition='auto',
+        )])
+        fig.update_layout(
+            title="AOV by Day of Week",
+            xaxis_title="Day",
+            yaxis_title="Average Order Value ($)",
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+
+        # Top Items
+        st.markdown("### Top Selling Items")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**By Revenue**")
+            for i, item in enumerate(results['Top Items (Revenue)'], 1):
+                st.text(f"{i}. {item['item']}: ${item['revenue']:,.2f} ({item['quantity']} sold)")
+
+        with col2:
+            st.markdown("**By Quantity Sold**")
+            for i, item in enumerate(results['Top Items (Quantity)'], 1):
+                st.text(f"{i}. {item['item']}: {item['quantity']} sold (${item['revenue']:,.2f})")
+
+        st.divider()
+
+        # Bottom Items
+        st.markdown("### Bottom Selling Items")
+        st.markdown("Items with lowest revenue performance:")
+        for i, item in enumerate(results['Bottom Items'], 1):
+            st.text(f"{i}. {item['item']}: ${item['revenue']:,.2f} ({item['quantity']} sold)")
+
+        st.divider()
+
+        # Recommendations
+        st.markdown("### Tactical Recommendations")
+        st.markdown("Day-specific and item-specific actions to improve performance:")
+
+        for i, rec in enumerate(results['Recommendations'], 1):
+            st.markdown(f"**{i}.** {rec}")
+
+
 # Main app navigation
 def main():
     """Main application with horizontal tab navigation."""
@@ -559,11 +773,12 @@ def main():
     st.divider()
 
     # Horizontal tabs without emojis
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home",
         "Upload Data",
         "Dashboard",
         "Recommendations",
+        "Transaction Insights",
         "Export Report"
     ])
 
@@ -580,6 +795,9 @@ def main():
         recommendations_page()
 
     with tab5:
+        transaction_insights_page()
+
+    with tab6:
         report_page()
 
 

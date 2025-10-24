@@ -36,11 +36,21 @@ The app will open in your browser at `http://localhost:8501`
 - See recommended deal types
 - Understand the rationale behind each recommendation
 
+### Transaction Insights Page
+- Upload transaction-level data for granular analytics
+- Identify slowest days by transactions and revenue
+- Calculate actual customer loyalty rate
+- Analyze average order value by day
+- Discover top and bottom selling items
+- Get day-specific tactical recommendations
+
 ### Report Page
 - Generate downloadable PDF or HTML reports
 - Share performance insights with your team
 
 ## CSV Format
+
+### Aggregated POS Data Format (Dashboard & Recommendations)
 
 Your POS data CSV must include these columns:
 
@@ -55,7 +65,19 @@ Your POS data CSV must include these columns:
 - `sales_per_sqft` - Revenue per square foot ($)
 - `expected_customer_repeat_rate` - Repeat customer rate (0-1)
 
-See `data/sample_restaurant_pos_data.csv` for an example.
+See [data/sample_restaurant_pos_data.csv](data/sample_restaurant_pos_data.csv) for an example.
+
+### Transaction-Level Data Format (Transaction Insights)
+
+For granular analytics, upload transaction data with these columns:
+
+- `date` - Transaction date in YYYY-MM-DD format
+- `total` - Transaction amount ($)
+- `customer_id` - Unique customer identifier
+- `item_name` - Item or product name
+- `day_of_week` - Full day name (Monday, Tuesday, etc.)
+
+See [data/sample_transaction_data.csv](data/sample_transaction_data.csv) for an example.
 
 ## Testing
 
@@ -73,6 +95,7 @@ flavyr-mvp/
 ├── requirements.txt          # Python dependencies
 ├── data/                     # Sample data and benchmarks
 │   ├── sample_restaurant_pos_data.csv
+│   ├── sample_transaction_data.csv
 │   ├── sample_industry_benchmark_data.csv
 │   └── deal_bank_strategy_matrix.csv
 ├── database/                 # SQLite database (auto-created)
@@ -81,19 +104,30 @@ flavyr-mvp/
 │   ├── data_loader.py        # Data loading and validation
 │   ├── analyzer.py           # Performance gap analysis
 │   ├── recommender.py        # Deal recommendations
-│   └── report_generator.py   # PDF/HTML reports
+│   ├── report_generator.py   # PDF/HTML reports
+│   └── transaction_analyzer.py  # Transaction-level analytics
 └── utils/                    # Helper functions
-    └── validators.py         # Data validation
+    ├── validators.py         # Data validation
+    └── transaction_validator.py  # Transaction data validation
 ```
 
 ## Key Features
 
+### Strategic Analytics
 - CSV upload with validation
-- Industry benchmark comparison
+- Industry benchmark comparison (10 restaurant types)
 - Performance gap analysis (7 KPIs)
 - Deal recommendations mapped to business problems
 - Interactive dashboard with charts
 - Downloadable PDF and HTML reports
+
+### Tactical Analytics (Transaction Insights)
+- Transaction-level data analysis
+- Slowest day identification (by transactions and revenue)
+- Customer loyalty rate calculation
+- Average order value by day of week
+- Top/bottom selling items ranking
+- Day-specific tactical recommendations
 
 ## Next Steps
 

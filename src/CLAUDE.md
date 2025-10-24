@@ -33,12 +33,29 @@ Report creation and export:
 - Format gap analysis breakdown
 - Export to PDF and HTML formats
 
+### transaction_analyzer.py
+Transaction-level analytics engine:
+- Identify slowest days by transactions and revenue
+- Calculate customer loyalty rate from repeat purchases
+- Analyze average order value overall and by day
+- Rank top and bottom selling items
+- Generate day-specific tactical recommendations
+
 ## Data Flow
-1. User uploads CSV via Streamlit
+
+### Strategic Analytics (Benchmark Comparison)
+1. User uploads aggregated POS CSV via Streamlit
 2. data_loader validates and stores data
 3. analyzer compares against benchmarks
 4. recommender suggests deals
 5. report_generator creates downloadable summary
+
+### Tactical Analytics (Transaction Insights)
+1. User uploads transaction-level CSV
+2. transaction_validator validates and prepares data
+3. transaction_analyzer performs granular analysis
+4. Results displayed with visualizations
+5. Day-specific recommendations generated
 
 ## Design Principles
 - Simple, beginner-friendly code

@@ -37,6 +37,22 @@ Industry benchmark averages for 10 different restaurant types.
 
 **Columns:** Same as restaurant POS data (except no date column)
 
+### sample_transaction_data.csv
+Sample transaction-level data for granular analytics (210 transactions over 30 days).
+
+**Columns:**
+- date - Transaction date (YYYY-MM-DD format)
+- total - Transaction amount ($)
+- customer_id - Unique customer identifier
+- item_name - Item or product name
+- day_of_week - Full day name (Monday, Tuesday, etc.)
+
+**Data Characteristics:**
+- 100 unique customers with 82% repeat rate
+- 7 menu items with realistic pricing
+- 30-day period (September 2025)
+- Intentional day-of-week patterns for testing
+
 ### deal_bank_strategy_matrix.csv
 Deal recommendations mapped to business problems.
 
@@ -56,11 +72,13 @@ Deal recommendations mapped to business problems.
 
 ## Usage
 
-These files are automatically loaded into the SQLite database on first app startup:
+### Database Loading (Automatic on Startup)
 - Benchmark data → `benchmarks` table
 - Deal bank data → `deal_bank` table
 
-Restaurant POS data is used for testing and as a template for users.
+### Testing and Templates
+- `sample_restaurant_pos_data.csv` - Template for aggregated POS uploads
+- `sample_transaction_data.csv` - Template for transaction-level uploads
 
 ## Notes
 

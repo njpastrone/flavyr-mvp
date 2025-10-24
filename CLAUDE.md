@@ -23,6 +23,7 @@ flavyr-mvp/
 │   └── CLAUDE.md               # Planning docs context
 ├── data/                        # Sample data and benchmarks
 │   ├── sample_restaurant_pos_data.csv
+│   ├── sample_transaction_data.csv
 │   ├── sample_industry_benchmark_data.csv
 │   └── deal_bank_strategy_matrix.csv
 ├── database/                    # SQLite database (auto-created)
@@ -33,19 +34,30 @@ flavyr-mvp/
 │   ├── data_loader.py          # Data loading and validation
 │   ├── analyzer.py             # Performance gap analysis
 │   ├── recommender.py          # Deal recommendations
-│   └── report_generator.py     # PDF/HTML reports
+│   ├── report_generator.py     # PDF/HTML reports
+│   └── transaction_analyzer.py # Transaction-level analytics
 └── utils/                       # Helper functions
     ├── CLAUDE.md               # Utils documentation
-    └── validators.py           # Data validation
+    ├── validators.py           # Data validation
+    └── transaction_validator.py # Transaction data validation
 ```
 
 ## Core Functionality (Phase 1)
 
-1. **Data Upload** - Restaurants upload POS data via CSV
+### Strategic Analytics
+1. **Data Upload** - Restaurants upload aggregated POS data via CSV
 2. **Benchmark Comparison** - Compare restaurant KPIs against industry averages
 3. **Gap Analysis** - Identify underperforming metrics
 4. **Deal Recommendations** - Suggest promotions from Deal Bank to address issues
 5. **Dashboard & Reports** - Streamlit interface with downloadable reports
+
+### Tactical Analytics (NEW - October 2025)
+6. **Transaction Insights** - Upload transaction-level data for granular analysis
+   - Slowest day identification (by transactions and revenue)
+   - Customer loyalty rate calculation
+   - Average order value analysis (overall and by day)
+   - Top/bottom selling items ranking
+   - Day-specific tactical recommendations
 
 ## Tech Stack
 
@@ -117,13 +129,17 @@ python test_app.py
 ## Implementation Complete
 
 All Phase 1 features have been implemented:
-- [x] CSV upload with validation
+- [x] CSV upload with validation (aggregated POS data)
 - [x] Industry benchmark comparison (10 restaurant types)
 - [x] Performance gap analysis (7 KPIs)
 - [x] Deal recommendation engine
-- [x] Interactive Streamlit dashboard (4 pages)
+- [x] Interactive Streamlit dashboard (6 pages)
 - [x] PDF and HTML report generation
 - [x] SQLite database with automated setup
+- [x] Transaction-level analytics (Founders' challenge requirements)
+- [x] Customer loyalty rate calculation
+- [x] AOV and item ranking analysis
+- [x] Day-specific tactical recommendations
 - [x] Comprehensive testing and validation
 
 See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
