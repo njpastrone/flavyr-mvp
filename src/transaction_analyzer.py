@@ -255,44 +255,6 @@ def generate_day_recommendations(df: pd.DataFrame) -> List[str]:
     return recommendations
 
 
-def validate_transaction_data(df: pd.DataFrame) -> Tuple[bool, str]:
-    """
-    Validate transaction DataFrame has required columns and data quality.
-
-    Args:
-        df: DataFrame to validate
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    required_columns = ['date', 'total', 'customer_id', 'item_name', 'day_of_week']
-
-    # Check required columns
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        return False, f"Missing required columns: {', '.join(missing_columns)}"
-
-    # Check for empty DataFrame
-    if df.empty:
-        return False, "DataFrame is empty"
-
-    # Validate total is numeric
-    if not pd.api.types.is_numeric_dtype(df['total']):
-        return False, "'total' column must be numeric"
-
-    # Check for negative totals
-    if (df['total'] < 0).any():
-        return False, "'total' column contains negative values"
-
-    # Validate date format
-    try:
-        pd.to_datetime(df['date'])
-    except Exception:
-        return False, "'date' column has invalid date format"
-
-    return True, ""
-
-
 def format_results_for_display(results: Dict) -> Dict:
     """
     Format analysis results for clean display in UI.

@@ -7,6 +7,7 @@ Ensures data meets requirements for granular sales analytics.
 
 import pandas as pd
 from typing import Tuple, List
+from src.config import ValidationConfig
 
 
 def validate_transaction_csv(df: pd.DataFrame) -> Tuple[bool, str, List[str]]:
@@ -30,7 +31,7 @@ def validate_transaction_csv(df: pd.DataFrame) -> Tuple[bool, str, List[str]]:
     warnings = []
 
     # Check required columns
-    required_columns = ['date', 'total', 'customer_id', 'item_name', 'day_of_week']
+    required_columns = ValidationConfig.TRANSACTION_REQUIRED_COLUMNS
     missing_columns = [col for col in required_columns if col not in df.columns]
 
     if missing_columns:

@@ -31,6 +31,7 @@ flavyr-mvp/
 │   └── flavyr.db               # Local SQLite database
 ├── src/                         # Core application logic
 │   ├── CLAUDE.md               # Source code documentation
+│   ├── config.py               # Centralized configuration (KPIs, validation rules)
 │   ├── data_loader.py          # Data loading and validation
 │   ├── analyzer.py             # Performance gap analysis
 │   ├── recommender.py          # Deal recommendations
@@ -141,8 +142,18 @@ All Phase 1 features have been implemented:
 - [x] AOV and item ranking analysis
 - [x] Day-specific tactical recommendations
 - [x] Comprehensive testing and validation
+- [x] Code simplification and refactoring (October 2025)
 
 See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
+
+## Recent Updates (October 2025)
+
+**Code Simplification & Refactoring:**
+- Removed 118 lines of duplicate and dead code (4.3% reduction)
+- Created centralized [src/config.py](src/config.py) for all constants
+- Established single source of truth for KPI definitions
+- Improved maintainability significantly
+- See [SIMPLIFICATION_RESULTS.md](SIMPLIFICATION_RESULTS.md) for details
 
 ## Next Steps
 

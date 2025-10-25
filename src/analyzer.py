@@ -5,32 +5,7 @@ Compares restaurant metrics against industry benchmarks.
 
 import pandas as pd
 from typing import Dict, List, Tuple
-
-
-# KPI columns to analyze
-KPI_COLUMNS = [
-    'avg_ticket',
-    'covers',
-    'labor_cost_pct',
-    'food_cost_pct',
-    'table_turnover',
-    'sales_per_sqft',
-    'expected_customer_repeat_rate'
-]
-
-# Friendly names for KPIs
-KPI_NAMES = {
-    'avg_ticket': 'Average Ticket Size',
-    'covers': 'Total Covers',
-    'labor_cost_pct': 'Labor Cost %',
-    'food_cost_pct': 'Food Cost %',
-    'table_turnover': 'Table Turnover',
-    'sales_per_sqft': 'Sales per Sq Ft',
-    'expected_customer_repeat_rate': 'Customer Repeat Rate'
-}
-
-# KPIs where lower is better (costs)
-LOWER_IS_BETTER = ['labor_cost_pct', 'food_cost_pct']
+from src.config import KPIConfig
 
 
 def calculate_gap_percentage(restaurant_value: float, benchmark_value: float, lower_is_better: bool = False) -> float:
@@ -70,15 +45,15 @@ def calculate_all_gaps(restaurant_data: pd.Series, benchmark_data: pd.Series) ->
     """
     gaps = {}
 
-    for kpi in KPI_COLUMNS:
+    for kpi in KPIConfig.COLUMNS:
         restaurant_value = restaurant_data[kpi]
         benchmark_value = benchmark_data[kpi]
-        lower_is_better = kpi in LOWER_IS_BETTER
+        lower_is_better = kpi in KPIConfig.LOWER_IS_BETTER
 
         gap_pct = calculate_gap_percentage(restaurant_value, benchmark_value, lower_is_better)
 
         gaps[kpi] = {
-            'kpi_name': KPI_NAMES[kpi],
+            'kpi_name': KPIConfig.NAMES[kpi],
             'restaurant_value': restaurant_value,
             'benchmark_value': benchmark_value,
             'gap_pct': gap_pct,

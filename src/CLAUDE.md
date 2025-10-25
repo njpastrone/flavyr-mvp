@@ -5,6 +5,18 @@ Contains the main business logic for FLAVYR MVP Phase 1.
 
 ## Files
 
+### config.py (NEW - October 2025)
+Centralized configuration module - single source of truth for all constants:
+- **KPIConfig** - All KPI definitions, names, mappings, help text, UI groupings
+- **ValidationConfig** - CSV column requirements for POS and transaction data
+- **ColorScheme** - UI color definitions
+
+**Benefits:**
+- Update KPI definitions in one place instead of five files
+- Consistent constant naming across entire codebase
+- Easy to find and modify configuration
+- Reduces risk of inconsistencies
+
 ### data_loader.py
 Handles all data loading and storage operations:
 - Load benchmark data from CSV into SQLite
@@ -18,10 +30,11 @@ Performance gap analysis engine:
 - Calculate performance gaps for all KPIs
 - Identify underperforming metrics (threshold: -5% to -10%)
 - Rank issues by severity (largest negative gaps first)
+- Uses KPIConfig for all KPI definitions
 
 ### recommender.py
 Deal recommendation system:
-- Map performance gaps to business problems
+- Map performance gaps to business problems (uses KPIConfig.TO_PROBLEM)
 - Query Deal Bank for relevant deal types
 - Return ranked recommendations with rationale
 - Prioritize by gap severity and deal diversity

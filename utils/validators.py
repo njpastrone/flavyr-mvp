@@ -5,21 +5,7 @@ Validates uploaded restaurant POS CSV files.
 
 import pandas as pd
 from typing import Tuple, List
-
-
-# Required columns for restaurant POS data
-REQUIRED_COLUMNS = [
-    'date',
-    'cuisine_type',
-    'dining_model',
-    'avg_ticket',
-    'covers',
-    'labor_cost_pct',
-    'food_cost_pct',
-    'table_turnover',
-    'sales_per_sqft',
-    'expected_customer_repeat_rate'
-]
+from src.config import ValidationConfig
 
 
 def validate_columns(df: pd.DataFrame) -> Tuple[bool, List[str]]:
@@ -33,7 +19,7 @@ def validate_columns(df: pd.DataFrame) -> Tuple[bool, List[str]]:
         Tuple of (is_valid, list_of_errors)
     """
     errors = []
-    missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    missing_columns = [col for col in ValidationConfig.RESTAURANT_REQUIRED_COLUMNS if col not in df.columns]
 
     if missing_columns:
         errors.append(f"Missing required columns: {', '.join(missing_columns)}")
@@ -141,7 +127,7 @@ def validate_missing_values(df: pd.DataFrame) -> Tuple[bool, List[str]]:
     """
     errors = []
 
-    for col in REQUIRED_COLUMNS:
+    for col in ValidationConfig.RESTAURANT_REQUIRED_COLUMNS:
         if col in df.columns:
             missing_count = df[col].isna().sum()
             if missing_count > 0:

@@ -5,18 +5,7 @@ Maps performance gaps to business problems and suggests deals.
 
 import pandas as pd
 from typing import List, Dict, Tuple
-
-
-# Mapping from KPIs to business problems
-KPI_TO_PROBLEM = {
-    'covers': 'Increase Quantity of Sales',
-    'avg_ticket': 'Boost Average Order Value (AOV)',
-    'expected_customer_repeat_rate': 'Foster Customer Loyalty',
-    'sales_per_sqft': 'Improve Slow Days',
-    'labor_cost_pct': 'Enhance Profit Margins',
-    'food_cost_pct': 'Enhance Profit Margins',
-    'table_turnover': 'Increase Quantity of Sales'
-}
+from src.config import KPIConfig
 
 
 def map_gaps_to_problems(underperforming_kpis: List[Tuple[str, Dict]], gap_threshold: float = -10.0) -> List[str]:
@@ -37,8 +26,8 @@ def map_gaps_to_problems(underperforming_kpis: List[Tuple[str, Dict]], gap_thres
 
         # Only map if gap is significant
         if gap_pct < gap_threshold:
-            if kpi in KPI_TO_PROBLEM:
-                problems.add(KPI_TO_PROBLEM[kpi])
+            if kpi in KPIConfig.TO_PROBLEM:
+                problems.add(KPIConfig.TO_PROBLEM[kpi])
 
     return list(problems)
 
@@ -89,8 +78,8 @@ def rank_recommendations(recommendations: List[Dict], ranked_issues: List[Tuple[
     problem_severity = {}
 
     for kpi, data in ranked_issues:
-        if kpi in KPI_TO_PROBLEM:
-            problem = KPI_TO_PROBLEM[kpi]
+        if kpi in KPIConfig.TO_PROBLEM:
+            problem = KPIConfig.TO_PROBLEM[kpi]
             gap_pct = data['gap_pct']
 
             # Take most severe gap for each problem

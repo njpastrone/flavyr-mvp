@@ -20,10 +20,11 @@ from src.data_loader import (
     get_all_deal_bank_data
 )
 from src.analyzer import analyze_restaurant_performance
-from src.recommender import generate_recommendations, KPI_TO_PROBLEM
+from src.recommender import generate_recommendations
 from src.report_generator import export_to_pdf, export_to_html
 from src.transaction_analyzer import analyze_transactions, format_results_for_display
 from utils.transaction_validator import validate_transaction_csv, get_transaction_data_summary, prepare_transaction_data
+from src.config import KPIConfig
 
 
 # Page configuration
@@ -107,12 +108,46 @@ def upload_page():
     ### Welcome to FLAVYR
 
     Upload your restaurant's POS data to get performance insights and deal recommendations.
-
-    **Required CSV columns:**
-    - date, cuisine_type, dining_model
-    - avg_ticket, covers, labor_cost_pct, food_cost_pct
-    - table_turnover, sales_per_sqft, expected_customer_repeat_rate
     """)
+
+    # Column Glossary
+    with st.expander("Column Definitions & Requirements", expanded=False):
+        st.markdown("""
+        ### Required Columns
+
+        **Identifiers:**
+        - `date` - Date of service (YYYY-MM-DD format)
+        - `cuisine_type` - Restaurant cuisine (e.g., Italian, American, Asian)
+        - `dining_model` - Service type (e.g., Fine Dining, Casual, QSR)
+
+        **Performance Metrics:**
+        - `avg_ticket` - Average dollar amount per customer visit
+        - `covers` - Number of customers served
+        - `labor_cost_pct` - Labor costs as % of revenue (lower is better)
+        - `food_cost_pct` - Food/beverage costs as % of revenue (lower is better)
+        - `table_turnover` - Times a table is used per service period
+        - `sales_per_sqft` - Revenue per square foot of space
+        - `expected_customer_repeat_rate` - % of customers expected to return
+
+        **Format Notes:**
+        - All percentage fields should be decimals (e.g., 0.35 for 35%)
+        - Dollar amounts should be numbers without $ symbols
+        - Dates must be consistent format
+        """)
+
+    # Sample CSV download button
+    st.markdown("**Need a template?**")
+    try:
+        with open('data/sample_restaurant_pos_data.csv', 'rb') as f:
+            st.download_button(
+                label="Download Sample CSV",
+                data=f,
+                file_name="flavyr_sample_data.csv",
+                mime="text/csv",
+                help="Download a properly formatted example file"
+            )
+    except FileNotFoundError:
+        st.warning("Sample CSV file not found. Please check the data directory.")
 
     # File uploader
     uploaded_file = st.file_uploader(
@@ -241,51 +276,56 @@ def dashboard_page():
 
     gaps = analysis['gaps']
 
-    # KPI help text definitions
-    kpi_help = {
-        'avg_ticket': 'Average dollar amount spent per customer visit. Higher values indicate customers are ordering more.',
-        'covers': 'Number of customers served during the period. Higher values indicate more traffic.',
-        'table_turnover': 'Number of times a table is used during a service period. Higher values indicate efficient table management.',
-        'sales_per_sqft': 'Revenue generated per square foot of restaurant space. Higher values indicate better space utilization.',
-        'labor_cost_pct': 'Labor costs as a percentage of total revenue. Lower values indicate better labor efficiency.',
-        'food_cost_pct': 'Food and beverage costs as a percentage of total revenue. Lower values indicate better cost management.',
-        'expected_customer_repeat_rate': 'Percentage of customers expected to return. Higher values indicate stronger customer loyalty.'
-    }
-
-    # Create 2 rows of metrics
-    row1_kpis = ['avg_ticket', 'covers', 'table_turnover', 'sales_per_sqft']
-    row2_kpis = ['labor_cost_pct', 'food_cost_pct', 'expected_customer_repeat_rate']
-
     # Row 1
     cols = st.columns(4)
-    for i, kpi in enumerate(row1_kpis):
+    for i, kpi in enumerate(KPIConfig.ROW1_KPIS):
         data = gaps[kpi]
         with cols[i]:
             gap_pct = data['gap_pct']
-            delta_color = "normal" if gap_pct >= 0 else "inverse"
+            # Apply metric-type-aware color logic
+            if kpi in KPIConfig.COST_METRICS:
+                # For costs: negative gap is good (lower costs)
+                delta_color = "inverse" if gap_pct >= 0 else "normal"
+            else:
+                # For revenue: positive gap is good (higher revenue)
+                delta_color = "normal" if gap_pct >= 0 else "inverse"
+
+            # Create label with both values
+            value_label = f"Your: {data['restaurant_value']:.2f}"
+            delta_label = f"Benchmark: {data['benchmark_value']:.2f} ({gap_pct:+.1f}%)"
 
             st.metric(
                 data['kpi_name'],
-                f"{data['restaurant_value']:.2f}",
-                f"{gap_pct:+.1f}% vs benchmark",
+                value_label,
+                delta_label,
                 delta_color=delta_color,
-                help=kpi_help.get(kpi, '')
+                help=KPIConfig.HELP_TEXT.get(kpi, '')
             )
 
     # Row 2
     cols = st.columns(4)
-    for i, kpi in enumerate(row2_kpis):
+    for i, kpi in enumerate(KPIConfig.ROW2_KPIS):
         data = gaps[kpi]
         with cols[i]:
             gap_pct = data['gap_pct']
-            delta_color = "normal" if gap_pct >= 0 else "inverse"
+            # Apply metric-type-aware color logic
+            if kpi in KPIConfig.COST_METRICS:
+                # For costs: negative gap is good (lower costs)
+                delta_color = "inverse" if gap_pct >= 0 else "normal"
+            else:
+                # For revenue: positive gap is good (higher revenue)
+                delta_color = "normal" if gap_pct >= 0 else "inverse"
+
+            # Create label with both values
+            value_label = f"Your: {data['restaurant_value']:.2f}"
+            delta_label = f"Benchmark: {data['benchmark_value']:.2f} ({gap_pct:+.1f}%)"
 
             st.metric(
                 data['kpi_name'],
-                f"{data['restaurant_value']:.2f}",
-                f"{gap_pct:+.1f}% vs benchmark",
+                value_label,
+                delta_label,
                 delta_color=delta_color,
-                help=kpi_help.get(kpi, '')
+                help=KPIConfig.HELP_TEXT.get(kpi, '')
             )
 
     st.divider()
@@ -331,7 +371,25 @@ def dashboard_page():
             yaxis_title="KPI",
             height=400,
             showlegend=False,
-            xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black')
+            xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black'),
+            shapes=[
+                dict(
+                    type='line',
+                    x0=0, x1=0,
+                    y0=0, y1=1,
+                    yref='paper',
+                    line=dict(color='black', width=2, dash='dash')
+                )
+            ],
+            annotations=[
+                dict(
+                    x=0, y=1.05,
+                    yref='paper',
+                    text='Industry Benchmark',
+                    showarrow=False,
+                    font=dict(size=12)
+                )
+            ]
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -387,7 +445,7 @@ def recommendations_page():
         # Find existing recommendation for this issue
         existing_rec = None
         for rec in recommendations:
-            if rec['business_problem'] == KPI_TO_PROBLEM.get(kpi):
+            if rec['business_problem'] == KPIConfig.TO_PROBLEM.get(kpi):
                 existing_rec = rec
                 break
 
@@ -639,6 +697,20 @@ def transaction_insights_page():
 
         results = st.session_state.transaction_analysis
 
+        # Add download button for results
+        import json
+        results_json = json.dumps(results, indent=2)
+
+        st.download_button(
+            label="Download Transaction Insights (JSON)",
+            data=results_json,
+            file_name=f"transaction_insights_{datetime.now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+            help="Download complete analysis results in JSON format"
+        )
+
+        st.divider()
+
         # Slowest Days
         st.markdown("### Slowest Day Analysis")
 
@@ -729,21 +801,50 @@ def transaction_insights_page():
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**By Revenue**")
-            for i, item in enumerate(results['Top Items (Revenue)'], 1):
-                st.text(f"{i}. {item['item']}: ${item['revenue']:,.2f} ({item['quantity']} sold)")
+            # Convert to dataframe for sortable display
+            top_revenue_df = pd.DataFrame(results['Top Items (Revenue)'])
+            if not top_revenue_df.empty:
+                # Format revenue column
+                top_revenue_df['Revenue'] = top_revenue_df['revenue'].apply(lambda x: f"${x:,.2f}")
+                top_revenue_df['Quantity'] = top_revenue_df['quantity']
+                top_revenue_df['Item'] = top_revenue_df['item']
+                st.dataframe(
+                    top_revenue_df[['Item', 'Revenue', 'Quantity']],
+                    use_container_width=True,
+                    hide_index=True
+                )
 
         with col2:
             st.markdown("**By Quantity Sold**")
-            for i, item in enumerate(results['Top Items (Quantity)'], 1):
-                st.text(f"{i}. {item['item']}: {item['quantity']} sold (${item['revenue']:,.2f})")
+            # Convert to dataframe for sortable display
+            top_quantity_df = pd.DataFrame(results['Top Items (Quantity)'])
+            if not top_quantity_df.empty:
+                # Format revenue column
+                top_quantity_df['Item'] = top_quantity_df['item']
+                top_quantity_df['Quantity'] = top_quantity_df['quantity']
+                top_quantity_df['Revenue'] = top_quantity_df['revenue'].apply(lambda x: f"${x:,.2f}")
+                st.dataframe(
+                    top_quantity_df[['Item', 'Quantity', 'Revenue']],
+                    use_container_width=True,
+                    hide_index=True
+                )
 
         st.divider()
 
         # Bottom Items
         st.markdown("### Bottom Selling Items")
         st.markdown("Items with lowest revenue performance:")
-        for i, item in enumerate(results['Bottom Items'], 1):
-            st.text(f"{i}. {item['item']}: ${item['revenue']:,.2f} ({item['quantity']} sold)")
+        # Convert to dataframe for sortable display
+        bottom_items_df = pd.DataFrame(results['Bottom Items'])
+        if not bottom_items_df.empty:
+            bottom_items_df['Item'] = bottom_items_df['item']
+            bottom_items_df['Revenue'] = bottom_items_df['revenue'].apply(lambda x: f"${x:,.2f}")
+            bottom_items_df['Quantity'] = bottom_items_df['quantity']
+            st.dataframe(
+                bottom_items_df[['Item', 'Revenue', 'Quantity']],
+                use_container_width=True,
+                hide_index=True
+            )
 
         st.divider()
 
