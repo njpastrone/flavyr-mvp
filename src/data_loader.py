@@ -16,7 +16,9 @@ DB_PATH = Path(__file__).parent.parent / 'database' / 'flavyr.db'
 
 # Data file paths
 BENCHMARK_DATA_PATH = Path(__file__).parent.parent / 'data' / 'sample_industry_benchmark_data.csv'
+TRANSACTION_BENCHMARK_DATA_PATH = Path(__file__).parent.parent / 'data' / 'transaction_benchmark_data.csv'
 DEAL_BANK_PATH = Path(__file__).parent.parent / 'data' / 'deal_bank_strategy_matrix.csv'
+TRANSACTION_DEAL_MAPPING_PATH = Path(__file__).parent.parent / 'data' / 'transaction_deal_mapping.csv'
 
 
 def get_db_connection():
@@ -38,7 +40,7 @@ def initialize_database():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Create restaurants table
+    # Create restaurants table with only the 3 core metrics
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS restaurants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,25 +49,17 @@ def initialize_database():
             dining_model TEXT NOT NULL,
             avg_ticket REAL NOT NULL,
             covers INTEGER NOT NULL,
-            labor_cost_pct REAL NOT NULL,
-            food_cost_pct REAL NOT NULL,
-            table_turnover REAL NOT NULL,
-            sales_per_sqft REAL NOT NULL,
             expected_customer_repeat_rate REAL NOT NULL
         )
     ''')
 
-    # Create benchmarks table
+    # Create benchmarks table with only the 3 core metrics
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS benchmarks (
             cuisine_type TEXT NOT NULL,
             dining_model TEXT NOT NULL,
             avg_ticket REAL NOT NULL,
             covers INTEGER NOT NULL,
-            labor_cost_pct REAL NOT NULL,
-            food_cost_pct REAL NOT NULL,
-            table_turnover REAL NOT NULL,
-            sales_per_sqft REAL NOT NULL,
             expected_customer_repeat_rate REAL NOT NULL,
             PRIMARY KEY (cuisine_type, dining_model)
         )
@@ -149,7 +143,7 @@ def load_deal_bank_data():
 
 def aggregate_daily_to_monthly(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Aggregate daily POS data to calculate overall averages.
+    Aggregate daily POS data to calculate overall averages for the 3 core metrics.
 
     Args:
         df: Daily POS data
@@ -161,16 +155,12 @@ def aggregate_daily_to_monthly(df: pd.DataFrame) -> pd.DataFrame:
     cuisine_type = df['cuisine_type'].iloc[0]
     dining_model = df['dining_model'].iloc[0]
 
-    # Calculate aggregated metrics
+    # Calculate aggregated metrics (3 core KPIs only)
     aggregated = {
         'cuisine_type': cuisine_type,
         'dining_model': dining_model,
         'avg_ticket': df['avg_ticket'].mean(),
         'covers': df['covers'].mean(),  # Average daily covers
-        'labor_cost_pct': df['labor_cost_pct'].mean(),
-        'food_cost_pct': df['food_cost_pct'].mean(),
-        'table_turnover': df['table_turnover'].mean(),
-        'sales_per_sqft': df['sales_per_sqft'].mean(),
         'expected_customer_repeat_rate': df['expected_customer_repeat_rate'].mean()
     }
 
@@ -182,7 +172,7 @@ def store_restaurant_data(df: pd.DataFrame) -> int:
     Store restaurant data in SQLite database after aggregation.
 
     Args:
-        df: Aggregated restaurant data (single row)
+        df: Aggregated restaurant data (single row) with 3 core metrics
 
     Returns:
         ID of the inserted restaurant record
@@ -193,11 +183,10 @@ def store_restaurant_data(df: pd.DataFrame) -> int:
     df_copy = df.copy()
     df_copy['upload_date'] = datetime.now().isoformat()
 
-    # Reorder columns to match table schema
+    # Reorder columns to match table schema (3 core metrics only)
     column_order = [
         'upload_date', 'cuisine_type', 'dining_model', 'avg_ticket',
-        'covers', 'labor_cost_pct', 'food_cost_pct', 'table_turnover',
-        'sales_per_sqft', 'expected_customer_repeat_rate'
+        'covers', 'expected_customer_repeat_rate'
     ]
     df_copy = df_copy[column_order]
 
@@ -237,10 +226,9 @@ def validate_and_load_restaurant_csv(uploaded_file) -> Tuple[bool, Optional[pd.D
         # Convert date column to datetime
         df['date'] = pd.to_datetime(df['date'])
 
-        # Convert numeric columns
+        # Convert numeric columns (3 core metrics only)
         numeric_columns = [
-            'avg_ticket', 'covers', 'labor_cost_pct', 'food_cost_pct',
-            'table_turnover', 'sales_per_sqft', 'expected_customer_repeat_rate'
+            'avg_ticket', 'covers', 'expected_customer_repeat_rate'
         ]
         for col in numeric_columns:
             df[col] = pd.to_numeric(df[col])
@@ -295,6 +283,53 @@ def get_benchmark_data(cuisine_type: str, dining_model: str) -> Optional[pd.Data
         return None
 
     return df
+
+
+def get_transaction_benchmarks(cuisine_type: str, dining_model: str) -> Optional[pd.Series]:
+    """
+    Retrieve transaction-level benchmark data for a specific restaurant type.
+
+    Args:
+        cuisine_type: Restaurant cuisine type
+        dining_model: Restaurant dining model
+
+    Returns:
+        Series with transaction benchmark data or None if not found
+    """
+    try:
+        # Load transaction benchmark CSV
+        df = pd.read_csv(TRANSACTION_BENCHMARK_DATA_PATH)
+
+        # Filter by restaurant type
+        filtered = df[
+            (df['cuisine_type'] == cuisine_type) &
+            (df['dining_model'] == dining_model)
+        ]
+
+        if len(filtered) == 0:
+            return None
+
+        # Return as Series for easy access
+        return filtered.iloc[0]
+
+    except Exception as e:
+        print(f"Error loading transaction benchmarks: {str(e)}")
+        return None
+
+
+def get_transaction_deal_mapping() -> pd.DataFrame:
+    """
+    Retrieve transaction-to-deal mapping data.
+
+    Returns:
+        Dataframe with mapping between transaction issues and deals
+    """
+    try:
+        df = pd.read_csv(TRANSACTION_DEAL_MAPPING_PATH)
+        return df
+    except Exception as e:
+        print(f"Error loading transaction deal mapping: {str(e)}")
+        return pd.DataFrame()
 
 
 def get_all_deal_bank_data() -> pd.DataFrame:

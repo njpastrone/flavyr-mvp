@@ -1,0 +1,11 @@
+cuisine_type,dining_model,benchmark_loyalty_rate,benchmark_aov_weekday,benchmark_aov_weekend,benchmark_aov_variation_pct,expected_slowest_day,benchmark_slow_day_drop_pct,benchmark_top_item_share_pct,benchmark_bottom_item_threshold_pct
+American,Full Service,40.0,32.00,42.00,31.25,Monday,35.0,20.0,2.5
+Italian,Casual Dining,43.0,38.00,48.00,26.32,Tuesday,30.0,22.0,2.0
+Mexican,Fast Casual,32.0,18.00,24.00,33.33,Sunday,28.0,18.0,3.0
+Japanese,Full Service,45.0,45.00,60.00,33.33,Monday,32.0,25.0,2.5
+Vegetarian,Fast Casual,35.0,22.00,28.00,27.27,Sunday,30.0,19.0,3.0
+American,Quick Service,27.0,13.00,16.00,23.08,Tuesday,25.0,15.0,4.0
+Indian,Full Service,38.0,35.00,45.00,28.57,Monday,33.0,21.0,2.5
+Seafood,Casual Dining,41.0,44.00,54.00,22.73,Wednesday,29.0,23.0,2.0
+Mediterranean,Fast Casual,36.0,20.00,26.00,30.00,Sunday,28.0,19.0,3.0
+Asian Fusion,Quick Service,33.0,16.00,20.00,25.00,Tuesday,26.0,17.0,3.5

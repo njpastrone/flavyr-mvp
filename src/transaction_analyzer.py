@@ -170,9 +170,9 @@ def rank_items(df: pd.DataFrame) -> Dict:
         for item, row in top_quantity.iterrows()
     ]
 
-    # Bottom 3 by revenue
-    bottom_revenue = items.tail(3)
-    bottom_items = [
+    # Bottom 3 by revenue (sort ascending to get lowest first)
+    bottom_revenue = items.sort_values('revenue', ascending=True).head(3)
+    bottom_items_revenue = [
         {
             'item': item,
             'revenue': round(row['revenue'], 2),
@@ -181,10 +181,22 @@ def rank_items(df: pd.DataFrame) -> Dict:
         for item, row in bottom_revenue.iterrows()
     ]
 
+    # Bottom 3 by quantity
+    bottom_quantity = items.sort_values('quantity', ascending=True).head(3)
+    bottom_items_quantity = [
+        {
+            'item': item,
+            'quantity': int(row['quantity']),
+            'revenue': round(row['revenue'], 2)
+        }
+        for item, row in bottom_quantity.iterrows()
+    ]
+
     return {
         'top_items_revenue': top_items_revenue,
         'top_items_quantity': top_items_quantity,
-        'bottom_items': bottom_items
+        'bottom_items_revenue': bottom_items_revenue,
+        'bottom_items_quantity': bottom_items_quantity
     }
 
 
@@ -232,11 +244,11 @@ def generate_day_recommendations(df: pd.DataFrame) -> List[str]:
 
     # Item-based recommendations
     items = rank_items(df)
-    if items['bottom_items']:
-        bottom_item = items['bottom_items'][0]['item']
+    if items['bottom_items_revenue']:
+        bottom_item = items['bottom_items_revenue'][0]['item']
         recommendations.append(
             f"Consider removing or reformulating '{bottom_item}' from menu "
-            f"(lowest revenue item at ${items['bottom_items'][0]['revenue']:.2f})"
+            f"(lowest revenue item at ${items['bottom_items_revenue'][0]['revenue']:.2f})"
         )
 
     if items['top_items_revenue']:
@@ -295,7 +307,8 @@ def format_results_for_display(results: Dict) -> Dict:
         },
         'Top Items (Revenue)': results['items']['top_items_revenue'],
         'Top Items (Quantity)': results['items']['top_items_quantity'],
-        'Bottom Items': results['items']['bottom_items'],
+        'Bottom Items (Revenue)': results['items']['bottom_items_revenue'],
+        'Bottom Items (Quantity)': results['items']['bottom_items_quantity'],
         'Recommendations': results['recommendations']
     }
 
@@ -307,7 +320,7 @@ def derive_aggregated_metrics(df: pd.DataFrame, cuisine_type: str, dining_model:
     Derive aggregated performance metrics from transaction-level data.
 
     This function bridges transaction-level data with strategic analysis by calculating
-    the 7 core KPIs used in the Dashboard and Recommendations modules.
+    the 3 core KPIs used in the Dashboard and Recommendations modules.
 
     Args:
         df: Transaction DataFrame with columns: date, total, customer_id, item_name, day_of_week
@@ -317,16 +330,16 @@ def derive_aggregated_metrics(df: pd.DataFrame, cuisine_type: str, dining_model:
     Returns:
         Single-row DataFrame with aggregated metrics matching the restaurants table schema:
         - cuisine_type, dining_model
-        - avg_ticket, covers, labor_cost_pct, food_cost_pct
-        - table_turnover, sales_per_sqft, expected_customer_repeat_rate
+        - avg_ticket (Average Order Value / AOV)
+        - covers (total customer count)
+        - expected_customer_repeat_rate (loyalty rate)
 
     Notes:
-        - Some metrics (labor_cost_pct, food_cost_pct, table_turnover, sales_per_sqft)
-          cannot be derived from transaction data alone and are set to reasonable defaults
-        - These defaults allow the pipeline to function but should be manually updated if available
+        - All 3 metrics are derived directly from transaction data
+        - No default values needed - everything is calculated from actual transactions
     """
 
-    # Calculate derivable metrics
+    # Calculate Average Ticket / AOV
     avg_ticket = df['total'].mean()
 
     # Covers = unique transactions (assuming 1 transaction = 1 customer visit)
@@ -340,27 +353,12 @@ def derive_aggregated_metrics(df: pd.DataFrame, cuisine_type: str, dining_model:
     repeat_customers = (customer_purchases > 1).sum()
     loyalty_rate = (repeat_customers / total_customers) if total_customers > 0 else 0.0
 
-    # Metrics that CANNOT be derived from transaction data alone
-    # Set to industry-neutral defaults (will appear as "at benchmark" in comparisons)
-    # These should be updated with actual data if available
-    labor_cost_pct = 0.30  # 30% - typical restaurant average
-    food_cost_pct = 0.30   # 30% - typical restaurant average
-    table_turnover = 2.0   # 2x per service period - typical average
-
-    # Sales per sqft: Cannot be calculated without square footage data
-    # Use a neutral default that won't skew analysis
-    sales_per_sqft = 100.0  # Placeholder - should be updated with actual data
-
-    # Create aggregated dataframe
+    # Create aggregated dataframe with only the 3 core metrics
     aggregated = pd.DataFrame([{
         'cuisine_type': cuisine_type,
         'dining_model': dining_model,
         'avg_ticket': round(avg_ticket, 2),
         'covers': int(round(avg_daily_covers)),
-        'labor_cost_pct': labor_cost_pct,
-        'food_cost_pct': food_cost_pct,
-        'table_turnover': table_turnover,
-        'sales_per_sqft': sales_per_sqft,
         'expected_customer_repeat_rate': round(loyalty_rate, 4)
     }])
 
@@ -369,7 +367,7 @@ def derive_aggregated_metrics(df: pd.DataFrame, cuisine_type: str, dining_model:
 
 def get_derivation_metadata(df: pd.DataFrame) -> Dict:
     """
-    Provide metadata about which metrics were derived vs. defaulted.
+    Provide metadata about how the 3 core metrics were derived.
 
     Args:
         df: Transaction DataFrame
@@ -380,7 +378,7 @@ def get_derivation_metadata(df: pd.DataFrame) -> Dict:
     return {
         'avg_ticket': {
             'derived': True,
-            'source': 'Mean of transaction totals',
+            'source': 'Mean of transaction totals (AOV)',
             'confidence': 'high'
         },
         'covers': {
@@ -392,25 +390,5 @@ def get_derivation_metadata(df: pd.DataFrame) -> Dict:
             'derived': True,
             'source': 'Percentage of customers with multiple transactions',
             'confidence': 'high'
-        },
-        'labor_cost_pct': {
-            'derived': False,
-            'source': 'Default value (30%) - update with actual data for accurate analysis',
-            'confidence': 'low'
-        },
-        'food_cost_pct': {
-            'derived': False,
-            'source': 'Default value (30%) - update with actual data for accurate analysis',
-            'confidence': 'low'
-        },
-        'table_turnover': {
-            'derived': False,
-            'source': 'Default value (2.0x) - update with actual data for accurate analysis',
-            'confidence': 'low'
-        },
-        'sales_per_sqft': {
-            'derived': False,
-            'source': 'Default value (100) - update with actual data for accurate analysis',
-            'confidence': 'low'
         }
     }

@@ -1,0 +1,12 @@
+Transaction_Metric,Issue_Type,Severity_Threshold,Severity_Level,Business_Problem,Priority,Rationale
+loyalty_rate,Below Benchmark,<30%,Critical,Foster Customer Loyalty,High,"Customer retention is critically low - immediate action needed to prevent revenue loss"
+loyalty_rate,Below Benchmark,30-35%,Warning,Foster Customer Loyalty,Medium,"Customer retention below industry standard - implement loyalty program"
+aov_overall,Below Benchmark,<90% of benchmark,Critical,Boost Average Order Value,High,"Customers spending significantly less per visit than competitors"
+aov_overall,Below Benchmark,90-95% of benchmark,Warning,Boost Average Order Value,Medium,"Room to increase average spend through upsells and bundles"
+aov_variation,Low Variance,Weekend/Weekday ratio <1.15,Warning,Boost Average Order Value,Medium,"Missing opportunity to capture higher weekend spending"
+slowest_day_drop,Excessive Drop,>40% below average,Critical,Improve Slow Days,High,"Traffic on slowest day is significantly worse than industry norm"
+slowest_day_drop,Normal Drop,35-40% below average,Warning,Improve Slow Days,Medium,"Slowest day performance could be improved with targeted promotions"
+top_item_concentration,Over-reliance,>30% revenue share,Warning,Increase Quantity of Sales,Medium,"Over-dependence on single item creates menu risk"
+bottom_items_count,Poor Performers,>5 items <2% revenue share,Warning,Inventory Management,Low,"Multiple low-performing items indicate menu optimization needed"
+repeat_customers,Very Low,<25%,Critical,Attract New Customers,High,"Extremely low repeat rate suggests customer experience or value issues"
+weekend_uplift,Missing Opportunity,Weekend AOV <20% higher than weekday,Warning,Boost Average Order Value,Medium,"Not capitalizing on typical weekend premium spending behavior"

@@ -151,6 +151,27 @@ See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
 
 ## Recent Updates (October 2025)
 
+**Recommendation Transparency System (October 25, 2025):**
+- Implemented complete transparency infrastructure for deal recommendations
+- Created [src/transparency_helpers.py](src/transparency_helpers.py) with 14 helper functions
+- Added step-by-step calculation explanations for all transaction metrics
+- Integrated visual confidence indicators based on data quality
+- Added severity threshold visualizations with color-coded scales
+- Included data source badges showing date ranges and record counts
+- Updated recommendations page with three expandable sections per insight:
+  - "How Was This Calculated?" - Complete calculation breakdown
+  - "Why This Severity?" - Visual severity scale with thresholds
+  - "Confidence Details" - Data quality factor analysis
+- See [IMPLEMENTATION_TRANSPARENCY.md](IMPLEMENTATION_TRANSPARENCY.md) for complete details
+
+**Transaction-to-Deals Integration (October 25, 2025):**
+- Connected transaction metrics to deal recommendation engine
+- Created transaction benchmark system with 10 restaurant type profiles
+- Built performance analyzer comparing actuals vs benchmarks with severity classification
+- Added 330+ lines to [src/recommender.py](src/recommender.py) for combined recommendations
+- Implemented `generate_combined_recommendations()` merging strategic + tactical insights
+- See [IMPLEMENTATION_TRANSACTION_RECOMMENDATIONS.md](IMPLEMENTATION_TRANSACTION_RECOMMENDATIONS.md) for details
+
 **Code Simplification & Refactoring:**
 - Removed 118 lines of duplicate and dead code (4.3% reduction)
 - Created centralized [src/config.py](src/config.py) for all constants

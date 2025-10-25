@@ -1,6 +1,6 @@
 """
 FLAVYR MVP - Restaurant Performance Diagnostic Platform
-Main Streamlit application with 4 pages: Upload, Dashboard, Recommendations, Report
+Main Streamlit application with transaction-first analytics workflow
 """
 
 import streamlit as st
@@ -17,14 +17,27 @@ from src.data_loader import (
     store_restaurant_data,
     get_restaurant_data,
     get_benchmark_data,
+    get_transaction_benchmarks,
+    get_transaction_deal_mapping,
     get_all_deal_bank_data,
     store_transaction_data,
     get_transaction_data
 )
 from src.analyzer import analyze_restaurant_performance
-from src.recommender import generate_recommendations
+from src.recommender import generate_recommendations, generate_combined_recommendations
 from src.report_generator import export_to_pdf, export_to_html
 from src.transaction_analyzer import analyze_transactions, format_results_for_display, derive_aggregated_metrics
+from src.transaction_performance_analyzer import generate_transaction_performance_report
+from src.transparency_helpers import (
+    generate_loyalty_calculation_explanation,
+    generate_aov_calculation_explanation,
+    generate_slowest_day_calculation_explanation,
+    generate_severity_explanation,
+    generate_data_source_badge,
+    calculate_confidence_score,
+    format_confidence_bar,
+    generate_confidence_explanation
+)
 from utils.transaction_validator import validate_transaction_csv, get_transaction_data_summary, prepare_transaction_data
 from src.config import KPIConfig
 
@@ -54,6 +67,8 @@ if 'transaction_data' not in st.session_state:
     st.session_state.transaction_data = None
 if 'transaction_analysis' not in st.session_state:
     st.session_state.transaction_analysis = None
+if 'transaction_performance' not in st.session_state:
+    st.session_state.transaction_performance = None
 if 'data_source' not in st.session_state:
     st.session_state.data_source = None  # 'transactions' or 'aggregated'
 if 'pipeline_stage' not in st.session_state:
@@ -82,8 +97,8 @@ def home_page():
     ### How It Works
 
     1. **Transaction Insights** - Upload transaction-level data (date, total, customer_id, item_name, day_of_week)
-    2. **Automatic Analysis** - System derives performance metrics and compares to industry benchmarks
-    3. **Dashboard** - View your KPI performance vs. competitors
+    2. **Dashboard** - View detailed transaction analytics (loyalty, AOV, slowest days, item rankings)
+    3. **Automatic Analysis** - System derives performance metrics and compares to industry benchmarks
     4. **Recommendations** - Get personalized deal suggestions to improve performance
     5. **Export Reports** - Download comprehensive reports in PDF or HTML format
 
@@ -103,7 +118,7 @@ def home_page():
 
     **Strategic Analysis:**
     - Performance grade (A-F) vs. industry benchmarks
-    - Gap analysis for 7 key performance indicators
+    - Gap analysis for 3 core performance indicators
     - Prioritized deal recommendations
     - Downloadable executive reports
 
@@ -125,7 +140,7 @@ def home_page():
             with col3:
                 st.metric("Pipeline Stage", "Complete")
 
-            st.info("Navigate to **Dashboard** or **Recommendations** tabs to view your results.")
+            st.info("Navigate to **Dashboard** to view transaction insights, or **Recommendations** for deal suggestions.")
         else:
             st.warning("Data uploaded but analysis incomplete. Please re-upload in Transaction Insights.")
     else:
@@ -152,14 +167,10 @@ def upload_page():
         - `cuisine_type` - Restaurant cuisine (e.g., Italian, American, Asian)
         - `dining_model` - Service type (e.g., Fine Dining, Casual, QSR)
 
-        **Performance Metrics:**
-        - `avg_ticket` - Average dollar amount per customer visit
+        **Performance Metrics (3 Core KPIs):**
+        - `avg_ticket` - Average dollar amount per customer visit (also known as AOV - Average Order Value)
         - `covers` - Number of customers served
-        - `labor_cost_pct` - Labor costs as % of revenue (lower is better)
-        - `food_cost_pct` - Food/beverage costs as % of revenue (lower is better)
-        - `table_turnover` - Times a table is used per service period
-        - `sales_per_sqft` - Revenue per square foot of space
-        - `expected_customer_repeat_rate` - % of customers expected to return
+        - `expected_customer_repeat_rate` - % of customers expected to return (loyalty rate)
 
         **Format Notes:**
         - All percentage fields should be decimals (e.g., 0.35 for 35%)
@@ -213,8 +224,7 @@ def upload_page():
             df_display['date'] = pd.to_datetime(df_display['date']).dt.strftime('%Y-%m-%d')
 
         # Round numeric columns to 2 decimals
-        numeric_cols = ['avg_ticket', 'labor_cost_pct', 'food_cost_pct', 'table_turnover',
-                        'sales_per_sqft', 'expected_customer_repeat_rate']
+        numeric_cols = ['avg_ticket', 'expected_customer_repeat_rate']
         for col in numeric_cols:
             if col in df_display.columns:
                 df_display[col] = df_display[col].round(2)
@@ -267,198 +277,12 @@ def upload_page():
             st.balloons()
 
 
-def dashboard_page():
-    """Page 2: Dashboard with KPI comparisons."""
-    st.title("Performance Dashboard")
-
-    if st.session_state.analysis_results is None:
-        st.info("**Step 2: View Your Performance Metrics**")
-        st.markdown("""
-        Once you upload transaction data, this dashboard will show:
-        - Performance grade (A-F) based on industry benchmarks
-        - KPI comparisons across 7 key metrics
-        - Performance gaps visualization
-        - Metrics derived automatically from your transaction data
-
-        **To get started:**
-        1. Navigate to the **Transaction Insights** tab
-        2. Upload your transaction data
-        3. Click "Analyze Transactions & Generate Insights"
-        4. Return here to see your results
-        """)
-        return
-
-    analysis = st.session_state.analysis_results
-
-    # Header
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        cuisine = analysis['cuisine_type']
-        dining = analysis['dining_model']
-        st.metric(
-            "Restaurant Type",
-            f"{cuisine} - {dining}",
-            help=f"Full type: {cuisine} - {dining}"
-        )
-    with col2:
-        st.metric("Performance Grade", analysis['performance_grade'])
-    with col3:
-        issues = len(analysis['underperforming_kpis'])
-        st.metric("Areas Needing Attention", issues)
-
-    # Data source indicator
-    if st.session_state.data_source == 'transactions':
-        st.info("Metrics derived from transaction data. Some metrics use industry defaults where transaction data cannot provide values (labor costs, food costs, table turnover, sales per sqft).")
-
-    st.divider()
-
-    # KPI Comparison Cards
-    st.subheader("KPI Performance")
-
-    gaps = analysis['gaps']
-
-    # Row 1
-    cols = st.columns(4)
-    for i, kpi in enumerate(KPIConfig.ROW1_KPIS):
-        data = gaps[kpi]
-        with cols[i]:
-            gap_pct = data['gap_pct']
-            # Apply metric-type-aware color logic
-            if kpi in KPIConfig.COST_METRICS:
-                # For costs: negative gap is good (lower costs)
-                delta_color = "inverse" if gap_pct >= 0 else "normal"
-            else:
-                # For revenue: positive gap is good (higher revenue)
-                delta_color = "normal" if gap_pct >= 0 else "inverse"
-
-            # Create label with both values
-            value_label = f"Your: {data['restaurant_value']:.2f}"
-            delta_label = f"Benchmark: {data['benchmark_value']:.2f} ({gap_pct:+.1f}%)"
-
-            st.metric(
-                data['kpi_name'],
-                value_label,
-                delta_label,
-                delta_color=delta_color,
-                help=KPIConfig.HELP_TEXT.get(kpi, '')
-            )
-
-    # Row 2
-    cols = st.columns(4)
-    for i, kpi in enumerate(KPIConfig.ROW2_KPIS):
-        data = gaps[kpi]
-        with cols[i]:
-            gap_pct = data['gap_pct']
-            # Apply metric-type-aware color logic
-            if kpi in KPIConfig.COST_METRICS:
-                # For costs: negative gap is good (lower costs)
-                delta_color = "inverse" if gap_pct >= 0 else "normal"
-            else:
-                # For revenue: positive gap is good (higher revenue)
-                delta_color = "normal" if gap_pct >= 0 else "inverse"
-
-            # Create label with both values
-            value_label = f"Your: {data['restaurant_value']:.2f}"
-            delta_label = f"Benchmark: {data['benchmark_value']:.2f} ({gap_pct:+.1f}%)"
-
-            st.metric(
-                data['kpi_name'],
-                value_label,
-                delta_label,
-                delta_color=delta_color,
-                help=KPIConfig.HELP_TEXT.get(kpi, '')
-            )
-
-    st.divider()
-
-    # Gap visualization
-    st.subheader("Performance Gaps")
-
-    # Prepare data
-    kpi_list = []
-    for kpi_key, kpi_data in gaps.items():
-        kpi_list.append({
-            'kpi': kpi_data['kpi_name'],
-            'gap_pct': kpi_data['gap_pct']
-        })
-
-    df_gaps = pd.DataFrame(kpi_list)
-
-    # Separate normal gaps from outliers
-    outlier_threshold = 100  # +/- 100%
-    normal_gaps = df_gaps[df_gaps['gap_pct'].abs() < outlier_threshold]
-    outlier_gaps = df_gaps[df_gaps['gap_pct'].abs() >= outlier_threshold]
-
-    # Display normal gaps chart
-    if not normal_gaps.empty:
-        kpi_names = normal_gaps['kpi'].tolist()
-        gap_values = normal_gaps['gap_pct'].tolist()
-        colors = ['green' if gap >= 0 else 'red' for gap in gap_values]
-
-        fig = go.Figure(data=[
-            go.Bar(
-                x=gap_values,
-                y=kpi_names,
-                orientation='h',
-                marker=dict(color=colors),
-                text=[f"{gap:+.1f}%" for gap in gap_values],
-                textposition='auto',
-            )
-        ])
-
-        fig.update_layout(
-            title="Performance vs Industry Benchmark",
-            xaxis_title="Gap Percentage",
-            yaxis_title="KPI",
-            height=400,
-            showlegend=False,
-            xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black'),
-            shapes=[
-                dict(
-                    type='line',
-                    x0=0, x1=0,
-                    y0=0, y1=1,
-                    yref='paper',
-                    line=dict(color='black', width=2, dash='dash')
-                )
-            ],
-            annotations=[
-                dict(
-                    x=0, y=1.05,
-                    yref='paper',
-                    text='Industry Benchmark',
-                    showarrow=False,
-                    font=dict(size=12)
-                )
-            ]
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-    # Display outliers separately
-    if not outlier_gaps.empty:
-        st.info("**Exceptional Performance Metrics**")
-        st.markdown("These metrics show extreme variance from industry benchmarks:")
-
-        cols = st.columns(len(outlier_gaps))
-        for i, (idx, row) in enumerate(outlier_gaps.iterrows()):
-            with cols[i]:
-                delta_color = "normal" if row['gap_pct'] >= 0 else "inverse"
-                st.metric(
-                    row['kpi'],
-                    f"{row['gap_pct']:+.0f}%",
-                    "vs benchmark",
-                    delta_color=delta_color,
-                    help="This metric significantly exceeds typical industry range"
-                )
-
-
 def recommendations_page():
     """Page 3: Deal recommendations."""
     st.title("Deal Recommendations")
 
     if st.session_state.recommendation_results is None:
-        st.info("**Step 3: Get Personalized Deal Recommendations**")
+        st.info("**Step 4: Get Personalized Deal Recommendations**")
         st.markdown("""
         Once your data is analyzed, this page will show:
         - Personalized deal suggestions based on your performance gaps
@@ -468,8 +292,8 @@ def recommendations_page():
 
         **To get started:**
         1. Navigate to the **Transaction Insights** tab
-        2. Upload your transaction data
-        3. Click "Analyze Transactions & Generate Insights"
+        2. Upload your transaction data and click "Analyze Transactions & Generate Insights"
+        3. View detailed analytics in the **Dashboard** tab
         4. Return here to see your personalized recommendations
         """)
         return
@@ -483,37 +307,98 @@ def recommendations_page():
 
     st.divider()
 
-    # Get all ranked issues (top 3)
-    ranked_issues = analysis['ranked_issues'][:3]
-    recommendations = rec_results['recommendations']
+    # Check if we have combined recommendations or old format
+    has_combined = 'strategic_recommendations' in rec_results or 'tactical_recommendations' in rec_results
 
-    # Ensure we have recommendations for all top 3 issues
-    all_recommendations = []
+    if has_combined:
+        # New combined format
+        strategic_recs = rec_results.get('strategic_recommendations', [])
+        tactical_recs = rec_results.get('tactical_recommendations', [])
+        priority_actions = rec_results.get('priority_actions', [])
 
-    for kpi, kpi_data in ranked_issues:
-        # Find existing recommendation for this issue
-        existing_rec = None
-        for rec in recommendations:
-            if rec['business_problem'] == KPIConfig.TO_PROBLEM.get(kpi):
-                existing_rec = rec
-                break
+        # Display priority actions if available
+        if priority_actions:
+            st.subheader("Priority Actions")
+            st.markdown("Top recommended actions based on combined strategic and tactical analysis:")
+            for i, action in enumerate(priority_actions, 1):
+                st.markdown(f"**{i}.** {action}")
+            st.divider()
 
-        if existing_rec:
-            all_recommendations.append(existing_rec)
-        else:
-            # Create a generic recommendation for this gap
+        # Combine all recommendations for display
+        all_recommendations = []
+
+        # Add strategic recommendations
+        for rec in strategic_recs:
             all_recommendations.append({
-                'business_problem': f"Improve {kpi_data['kpi_name']}",
-                'severity': kpi_data['gap_pct'],
-                'deal_types_list': [],
-                'deal_types': 'Review operational processes and industry best practices',
-                'rationale': f"Your {kpi_data['kpi_name']} is {abs(kpi_data['gap_pct']):.1f}% below industry benchmark. Consider analyzing this metric in detail to identify root causes."
+                'source': 'Strategic KPI',
+                'business_problem': rec['business_problem'],
+                'severity': rec.get('severity', 0),
+                'deal_types_list': rec.get('deal_types_list', []),
+                'deal_types': rec.get('deal_types', ''),
+                'rationale': rec.get('rationale', ''),
+                'is_strategic': True
             })
 
-    # Separate into critical and other
-    critical_threshold = -15.0
-    critical_issues = [rec for rec in all_recommendations if rec['severity'] < critical_threshold]
-    other_issues = [rec for rec in all_recommendations if rec['severity'] >= critical_threshold]
+        # Add tactical recommendations
+        for rec in tactical_recs:
+            severity_val = rec.get('severity', 'medium')
+            # Convert string severity to numeric for sorting
+            severity_map = {'critical': -30, 'high': -20, 'medium': -10, 'low': -5}
+            severity_num = severity_map.get(severity_val, -10) if isinstance(severity_val, str) else severity_val
+
+            all_recommendations.append({
+                'source': 'Transaction Insight',
+                'business_problem': rec['business_problem'],
+                'severity': severity_num,
+                'severity_label': rec.get('severity_label', 'Medium'),
+                'deal_types_list': rec.get('deal_types_list', []),
+                'deal_types': rec.get('deal_types', ''),
+                'rationale': rec.get('rationale', ''),
+                'actionable_insight': rec.get('actionable_insight', ''),
+                'metric': rec.get('metric', ''),
+                'actual_value': rec.get('actual_value', ''),
+                'benchmark_value': rec.get('benchmark_value', ''),
+                'gap': rec.get('gap', ''),
+                'is_strategic': False
+            })
+
+        # Separate into critical and other
+        critical_threshold = -15.0
+        critical_issues = [rec for rec in all_recommendations if rec['severity'] < critical_threshold]
+        other_issues = [rec for rec in all_recommendations if rec['severity'] >= critical_threshold]
+
+    else:
+        # Old format - maintain backward compatibility
+        ranked_issues = analysis['ranked_issues'][:3]
+        recommendations = rec_results.get('recommendations', [])
+
+        # Ensure we have recommendations for all top 3 issues
+        all_recommendations = []
+
+        for kpi, kpi_data in ranked_issues:
+            # Find existing recommendation for this issue
+            existing_rec = None
+            for rec in recommendations:
+                if rec['business_problem'] == KPIConfig.TO_PROBLEM.get(kpi):
+                    existing_rec = rec
+                    break
+
+            if existing_rec:
+                all_recommendations.append(existing_rec)
+            else:
+                # Create a generic recommendation for this gap
+                all_recommendations.append({
+                    'business_problem': f"Improve {kpi_data['kpi_name']}",
+                    'severity': kpi_data['gap_pct'],
+                    'deal_types_list': [],
+                    'deal_types': 'Review operational processes and industry best practices',
+                    'rationale': f"Your {kpi_data['kpi_name']} is {abs(kpi_data['gap_pct']):.1f}% below industry benchmark. Consider analyzing this metric in detail to identify root causes."
+                })
+
+        # Separate into critical and other
+        critical_threshold = -15.0
+        critical_issues = [rec for rec in all_recommendations if rec['severity'] < critical_threshold]
+        other_issues = [rec for rec in all_recommendations if rec['severity'] >= critical_threshold]
 
     # Always display Critical Issues section
     st.subheader("Critical Issues")
@@ -521,8 +406,58 @@ def recommendations_page():
 
     if critical_issues:
         for i, rec in enumerate(critical_issues, 1):
-            with st.expander(f"**{i}. {rec['business_problem']}**", expanded=True):
-                st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
+            # Format title with source indicator
+            source_label = f"[{rec.get('source', 'Strategic')}]" if 'source' in rec else ""
+            title = f"**{i}. {rec['business_problem']}** {source_label}"
+
+            with st.expander(title, expanded=True):
+                # Display severity with confidence indicator for tactical recommendations
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    severity_label = rec.get('severity_label', f"{abs(rec['severity']):.1f}% below benchmark")
+                    if isinstance(rec['severity'], (int, float)):
+                        st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
+                    else:
+                        st.markdown(f"**Severity:** {severity_label}")
+
+                # Add confidence indicator for transaction insights
+                with col2:
+                    if not rec.get('is_strategic', True) and st.session_state.transaction_data is not None:
+                        confidence_factors = {
+                            'sample_size': len(st.session_state.transaction_data),
+                            'days_of_data': 30,  # Placeholder - can calculate from data
+                            'benchmark_sample_size': 500,
+                            'locations': 1
+                        }
+                        confidence = calculate_confidence_score(confidence_factors)
+                        st.markdown(f"**Confidence:**")
+                        st.markdown(format_confidence_bar(confidence))
+
+                # Data source badge for transaction insights
+                if not rec.get('is_strategic', True) and st.session_state.transaction_data is not None:
+                    trans_df = st.session_state.transaction_data
+                    date_range = f"{trans_df['date'].min()} to {trans_df['date'].max()}"
+                    badge = generate_data_source_badge('transactions', {
+                        'date_range': date_range,
+                        'count': len(trans_df)
+                    })
+                    st.info(badge)
+
+                # Display metric details for tactical recommendations
+                if not rec.get('is_strategic', True):
+                    if rec.get('metric'):
+                        st.markdown(f"**Metric:** {rec['metric']}")
+                    if rec.get('actual_value'):
+                        st.markdown(f"**Your Value:** {rec['actual_value']}")
+                    if rec.get('benchmark_value'):
+                        st.markdown(f"**Benchmark:** {rec['benchmark_value']}")
+                    if rec.get('gap'):
+                        st.markdown(f"**Gap:** {rec['gap']}")
+
+                # Display actionable insight for tactical recommendations
+                if rec.get('actionable_insight'):
+                    st.markdown("**Immediate Action:**")
+                    st.info(rec['actionable_insight'])
 
                 st.markdown("**Suggested Deal Types:**")
                 deal_list = rec.get('deal_types_list', [])
@@ -530,10 +465,131 @@ def recommendations_page():
                     for deal in deal_list:
                         st.markdown(f"- {deal}")
                 else:
-                    st.markdown(rec['deal_types'])
+                    st.markdown(rec.get('deal_types', 'N/A'))
 
                 st.markdown("**Rationale:**")
-                st.markdown(rec['rationale'])
+                st.markdown(rec.get('rationale', 'N/A'))
+
+                # Add transparency expandables for transaction insights
+                if not rec.get('is_strategic', True) and st.session_state.transaction_performance is not None:
+                    st.divider()
+
+                    # How Was This Calculated?
+                    with st.expander("How Was This Calculated?"):
+                        metric = rec.get('metric', '')
+
+                        # Get transparency data from transaction performance
+                        perf_data = st.session_state.transaction_performance
+
+                        if 'loyalty' in metric.lower() and 'loyalty_analysis' in perf_data:
+                            loyalty_data = perf_data['loyalty_analysis']
+                            transparency = loyalty_data.get('transparency', {})
+
+                            calc_data = {
+                                'total_customers': transparency.get('calculation_inputs', {}).get('total_customers', 0),
+                                'repeat_customers': transparency.get('calculation_inputs', {}).get('repeat_customers', 0),
+                                'new_customers': transparency.get('calculation_inputs', {}).get('new_customers', 0),
+                                'loyalty_rate': loyalty_data.get('actual_value', 0),
+                                'benchmark': loyalty_data.get('benchmark_value', 0),
+                                'restaurant_type': st.session_state.get('cuisine_type', 'Your restaurant type')
+                            }
+                            explanation = generate_loyalty_calculation_explanation(calc_data)
+                            st.markdown(explanation)
+
+                        elif 'aov' in metric.lower() and 'aov_analysis' in perf_data:
+                            aov_data = perf_data['aov_analysis']
+
+                            # Get transaction data for calculation
+                            if st.session_state.transaction_data is not None:
+                                trans_df = st.session_state.transaction_data
+                                total_revenue = trans_df['total'].sum()
+                                total_transactions = len(trans_df)
+
+                                # Calculate weekday/weekend AOV
+                                trans_df['day_of_week'] = pd.to_datetime(trans_df['date']).dt.day_name()
+                                weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+                                weekday_avg = trans_df[trans_df['day_of_week'].isin(weekdays)]['total'].mean()
+                                weekend_avg = trans_df[~trans_df['day_of_week'].isin(weekdays)]['total'].mean()
+
+                                calc_data = {
+                                    'total_transactions': total_transactions,
+                                    'total_revenue': total_revenue,
+                                    'actual_aov': aov_data.get('actual_value', 0),
+                                    'benchmark_aov': aov_data.get('benchmark_value', 0),
+                                    'weekday_aov': weekday_avg,
+                                    'weekend_aov': weekend_avg,
+                                    'restaurant_type': st.session_state.get('cuisine_type', 'Your restaurant type')
+                                }
+                                explanation = generate_aov_calculation_explanation(calc_data)
+                                st.markdown(explanation)
+
+                        elif 'slow' in metric.lower() and 'slowest_day_analysis' in perf_data:
+                            slow_data = perf_data['slowest_day_analysis']
+
+                            calc_data = {
+                                'slowest_day': slow_data.get('slowest_day', 'Monday'),
+                                'slowest_count': slow_data.get('slowest_count', 0),
+                                'average_count': slow_data.get('average_count', 0),
+                                'actual_drop_pct': slow_data.get('actual_drop_pct', 0),
+                                'expected_drop_pct': slow_data.get('expected_drop_pct', 0),
+                                'expected_slowest': slow_data.get('expected_slowest', 'Monday'),
+                                'restaurant_type': st.session_state.get('cuisine_type', 'Your restaurant type')
+                            }
+                            explanation = generate_slowest_day_calculation_explanation(calc_data)
+                            st.markdown(explanation)
+
+                    # Why This Severity?
+                    with st.expander("Why This Severity?"):
+                        metric = rec.get('metric', '')
+                        perf_data = st.session_state.transaction_performance
+
+                        # Extract severity explanation based on metric
+                        if 'loyalty' in metric.lower() and 'loyalty_analysis' in perf_data:
+                            loyalty_data = perf_data['loyalty_analysis']
+                            transparency = loyalty_data.get('transparency', {})
+
+                            severity_exp = generate_severity_explanation(
+                                metric='loyalty_rate',
+                                value=loyalty_data.get('actual_value', 0),
+                                severity=loyalty_data.get('severity', 'medium'),
+                                thresholds=transparency.get('thresholds', {})
+                            )
+                            st.markdown(severity_exp)
+
+                        elif 'aov' in metric.lower() and 'aov_analysis' in perf_data:
+                            aov_data = perf_data['aov_analysis']
+
+                            severity_exp = generate_severity_explanation(
+                                metric='aov',
+                                value=aov_data.get('actual_value', 0),
+                                severity=aov_data.get('severity', 'medium'),
+                                thresholds={'critical': 90, 'medium': 95}
+                            )
+                            st.markdown(severity_exp)
+
+                        elif 'slow' in metric.lower() and 'slowest_day_analysis' in perf_data:
+                            slow_data = perf_data['slowest_day_analysis']
+
+                            severity_exp = generate_severity_explanation(
+                                metric='slowest_day',
+                                value=slow_data.get('actual_drop_pct', 0),
+                                severity=slow_data.get('severity', 'medium'),
+                                thresholds={'critical': 40, 'high': 35}
+                            )
+                            st.markdown(severity_exp)
+
+                    # Confidence Details
+                    if st.session_state.transaction_data is not None:
+                        with st.expander("Confidence Details"):
+                            confidence_factors = {
+                                'sample_size': len(st.session_state.transaction_data),
+                                'days_of_data': 30,
+                                'benchmark_sample_size': 500,
+                                'locations': 1
+                            }
+                            confidence = calculate_confidence_score(confidence_factors)
+                            conf_explanation = generate_confidence_explanation(confidence_factors, confidence)
+                            st.markdown(conf_explanation)
     else:
         st.success("No critical issues identified. All metrics are within 15% of industry benchmarks.")
 
@@ -543,22 +599,177 @@ def recommendations_page():
         st.subheader("Other Areas for Improvement")
 
         for i, rec in enumerate(other_issues, 1):
-            st.markdown(f"**{i}. {rec['business_problem']}**")
-            st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
+            # Format title with source indicator
+            source_label = f"[{rec.get('source', 'Strategic')}]" if 'source' in rec else ""
 
-            st.markdown("**Suggested Deal Types:**")
-            deal_list = rec.get('deal_types_list', [])
-            if deal_list:
-                for deal in deal_list:
-                    st.markdown(f"- {deal}")
-            else:
-                st.markdown(rec['deal_types'])
+            with st.expander(f"**{i}. {rec['business_problem']}** {source_label}"):
+                # Display severity with confidence indicator for tactical recommendations
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    if isinstance(rec['severity'], (int, float)):
+                        st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
+                    else:
+                        st.markdown(f"**Severity:** {rec.get('severity_label', 'Medium')}")
 
-            st.markdown("**Rationale:**")
-            st.markdown(rec['rationale'])
+                # Add confidence indicator for transaction insights
+                with col2:
+                    if not rec.get('is_strategic', True) and st.session_state.transaction_data is not None:
+                        confidence_factors = {
+                            'sample_size': len(st.session_state.transaction_data),
+                            'days_of_data': 30,
+                            'benchmark_sample_size': 500,
+                            'locations': 1
+                        }
+                        confidence = calculate_confidence_score(confidence_factors)
+                        st.markdown(f"**Confidence:**")
+                        st.markdown(format_confidence_bar(confidence))
 
-            if i < len(other_issues):
-                st.divider()
+                # Data source badge for transaction insights
+                if not rec.get('is_strategic', True) and st.session_state.transaction_data is not None:
+                    trans_df = st.session_state.transaction_data
+                    date_range = f"{trans_df['date'].min()} to {trans_df['date'].max()}"
+                    badge = generate_data_source_badge('transactions', {
+                        'date_range': date_range,
+                        'count': len(trans_df)
+                    })
+                    st.info(badge)
+
+                # Display metric details for tactical recommendations
+                if not rec.get('is_strategic', True):
+                    if rec.get('actual_value') and rec.get('benchmark_value'):
+                        st.markdown(f"**Performance:** {rec['actual_value']} vs {rec['benchmark_value']} benchmark")
+
+                # Display actionable insight for tactical recommendations
+                if rec.get('actionable_insight'):
+                    st.markdown("**Action:**")
+                    st.markdown(f"_{rec['actionable_insight']}_")
+
+                st.markdown("**Suggested Deal Types:**")
+                deal_list = rec.get('deal_types_list', [])
+                if deal_list:
+                    for deal in deal_list:
+                        st.markdown(f"- {deal}")
+                else:
+                    st.markdown(rec.get('deal_types', 'N/A'))
+
+                st.markdown("**Rationale:**")
+                st.markdown(rec.get('rationale', 'N/A'))
+
+                # Add transparency expandables for transaction insights
+                if not rec.get('is_strategic', True) and st.session_state.transaction_performance is not None:
+                    st.divider()
+
+                    # How Was This Calculated?
+                    with st.expander("How Was This Calculated?"):
+                        metric = rec.get('metric', '')
+                        perf_data = st.session_state.transaction_performance
+
+                        if 'loyalty' in metric.lower() and 'loyalty_analysis' in perf_data:
+                            loyalty_data = perf_data['loyalty_analysis']
+                            transparency = loyalty_data.get('transparency', {})
+
+                            calc_data = {
+                                'total_customers': transparency.get('calculation_inputs', {}).get('total_customers', 0),
+                                'repeat_customers': transparency.get('calculation_inputs', {}).get('repeat_customers', 0),
+                                'new_customers': transparency.get('calculation_inputs', {}).get('new_customers', 0),
+                                'loyalty_rate': loyalty_data.get('actual_value', 0),
+                                'benchmark': loyalty_data.get('benchmark_value', 0),
+                                'restaurant_type': st.session_state.get('cuisine_type', 'Your restaurant type')
+                            }
+                            explanation = generate_loyalty_calculation_explanation(calc_data)
+                            st.markdown(explanation)
+
+                        elif 'aov' in metric.lower() and 'aov_analysis' in perf_data:
+                            aov_data = perf_data['aov_analysis']
+
+                            if st.session_state.transaction_data is not None:
+                                trans_df = st.session_state.transaction_data
+                                total_revenue = trans_df['total'].sum()
+                                total_transactions = len(trans_df)
+
+                                trans_df['day_of_week'] = pd.to_datetime(trans_df['date']).dt.day_name()
+                                weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+                                weekday_avg = trans_df[trans_df['day_of_week'].isin(weekdays)]['total'].mean()
+                                weekend_avg = trans_df[~trans_df['day_of_week'].isin(weekdays)]['total'].mean()
+
+                                calc_data = {
+                                    'total_transactions': total_transactions,
+                                    'total_revenue': total_revenue,
+                                    'actual_aov': aov_data.get('actual_value', 0),
+                                    'benchmark_aov': aov_data.get('benchmark_value', 0),
+                                    'weekday_aov': weekday_avg,
+                                    'weekend_aov': weekend_avg,
+                                    'restaurant_type': st.session_state.get('cuisine_type', 'Your restaurant type')
+                                }
+                                explanation = generate_aov_calculation_explanation(calc_data)
+                                st.markdown(explanation)
+
+                        elif 'slow' in metric.lower() and 'slowest_day_analysis' in perf_data:
+                            slow_data = perf_data['slowest_day_analysis']
+
+                            calc_data = {
+                                'slowest_day': slow_data.get('slowest_day', 'Monday'),
+                                'slowest_count': slow_data.get('slowest_count', 0),
+                                'average_count': slow_data.get('average_count', 0),
+                                'actual_drop_pct': slow_data.get('actual_drop_pct', 0),
+                                'expected_drop_pct': slow_data.get('expected_drop_pct', 0),
+                                'expected_slowest': slow_data.get('expected_slowest', 'Monday'),
+                                'restaurant_type': st.session_state.get('cuisine_type', 'Your restaurant type')
+                            }
+                            explanation = generate_slowest_day_calculation_explanation(calc_data)
+                            st.markdown(explanation)
+
+                    # Why This Severity?
+                    with st.expander("Why This Severity?"):
+                        metric = rec.get('metric', '')
+                        perf_data = st.session_state.transaction_performance
+
+                        if 'loyalty' in metric.lower() and 'loyalty_analysis' in perf_data:
+                            loyalty_data = perf_data['loyalty_analysis']
+                            transparency = loyalty_data.get('transparency', {})
+
+                            severity_exp = generate_severity_explanation(
+                                metric='loyalty_rate',
+                                value=loyalty_data.get('actual_value', 0),
+                                severity=loyalty_data.get('severity', 'medium'),
+                                thresholds=transparency.get('thresholds', {})
+                            )
+                            st.markdown(severity_exp)
+
+                        elif 'aov' in metric.lower() and 'aov_analysis' in perf_data:
+                            aov_data = perf_data['aov_analysis']
+
+                            severity_exp = generate_severity_explanation(
+                                metric='aov',
+                                value=aov_data.get('actual_value', 0),
+                                severity=aov_data.get('severity', 'medium'),
+                                thresholds={'critical': 90, 'medium': 95}
+                            )
+                            st.markdown(severity_exp)
+
+                        elif 'slow' in metric.lower() and 'slowest_day_analysis' in perf_data:
+                            slow_data = perf_data['slowest_day_analysis']
+
+                            severity_exp = generate_severity_explanation(
+                                metric='slowest_day',
+                                value=slow_data.get('actual_drop_pct', 0),
+                                severity=slow_data.get('severity', 'medium'),
+                                thresholds={'critical': 40, 'high': 35}
+                            )
+                            st.markdown(severity_exp)
+
+                    # Confidence Details
+                    if st.session_state.transaction_data is not None:
+                        with st.expander("Confidence Details"):
+                            confidence_factors = {
+                                'sample_size': len(st.session_state.transaction_data),
+                                'days_of_data': 30,
+                                'benchmark_sample_size': 500,
+                                'locations': 1
+                            }
+                            confidence = calculate_confidence_score(confidence_factors)
+                            conf_explanation = generate_confidence_explanation(confidence_factors, confidence)
+                            st.markdown(conf_explanation)
 
     # If no issues at all
     if not critical_issues and not other_issues:
@@ -570,7 +781,7 @@ def report_page():
     st.title("Performance Report")
 
     if st.session_state.analysis_results is None:
-        st.info("**Step 4: Export Your Performance Report**")
+        st.info("**Step 5: Export Your Performance Report**")
         st.markdown("""
         Once your analysis is complete, you can generate comprehensive reports with:
         - Executive summary
@@ -586,7 +797,8 @@ def report_page():
         **To get started:**
         1. Navigate to the **Transaction Insights** tab
         2. Upload your transaction data and run analysis
-        3. Return here to generate and download reports
+        3. Review insights in the **Dashboard** tab
+        4. Return here to generate and download reports
         """)
         return
 
@@ -776,22 +988,51 @@ def transaction_insights_page():
                 restaurant_id = store_restaurant_data(aggregated_df)
                 transaction_count = store_transaction_data(cleaned_df, restaurant_id)
 
-                # Step 5: Get benchmark data
+                # Step 5: Get benchmark data (both strategic and transaction)
                 st.info("Comparing to industry benchmarks...")
                 benchmark_df = get_benchmark_data(cuisine_type, dining_model)
+                transaction_benchmarks = get_transaction_benchmarks(cuisine_type, dining_model)
 
                 if benchmark_df is None:
-                    st.error(f"No benchmark data found for {cuisine_type} - {dining_model}")
-                    st.warning("Analysis complete but benchmark comparison unavailable.")
+                    st.error(f"No strategic benchmark data found for {cuisine_type} - {dining_model}")
+                    st.warning("Analysis complete but strategic benchmark comparison unavailable.")
                 else:
-                    # Step 6: Run performance analysis
+                    # Step 6: Run strategic performance analysis
                     restaurant_df = get_restaurant_data(restaurant_id)
                     analysis_results = analyze_restaurant_performance(restaurant_df, benchmark_df)
                     st.session_state.analysis_results = analysis_results
 
-                    # Step 7: Generate recommendations
+                    # Step 7: Run transaction performance analysis
+                    transaction_performance = None
+                    if transaction_benchmarks is not None:
+                        st.info("Analyzing transaction-level performance...")
+                        # Calculate total revenue for item analysis
+                        total_revenue = cleaned_df['total'].sum()
+                        transaction_performance = generate_transaction_performance_report(
+                            formatted_results,
+                            transaction_benchmarks,
+                            total_revenue
+                        )
+                        st.session_state.transaction_performance = transaction_performance
+                    else:
+                        st.warning(f"Transaction benchmarks not found for {cuisine_type} - {dining_model}")
+
+                    # Step 8: Generate combined recommendations
                     deal_bank_df = get_all_deal_bank_data()
-                    recommendation_results = generate_recommendations(analysis_results, deal_bank_df)
+                    deal_mapping_df = get_transaction_deal_mapping()
+
+                    if transaction_performance is not None and len(deal_mapping_df) > 0:
+                        # Combined recommendations (strategic + tactical)
+                        recommendation_results = generate_combined_recommendations(
+                            analysis_results,
+                            transaction_performance,
+                            deal_bank_df,
+                            deal_mapping_df
+                        )
+                    else:
+                        # Fallback to strategic only
+                        recommendation_results = generate_recommendations(analysis_results, deal_bank_df)
+
                     st.session_state.recommendation_results = recommendation_results
 
                 # Store in session state
@@ -805,75 +1046,69 @@ def transaction_insights_page():
 
             st.success("Complete analysis pipeline finished!")
             st.success(f"Stored {transaction_count} transactions and generated strategic insights.")
-            st.info("Navigate to the **Dashboard** tab to see performance metrics, or **Recommendations** tab for deal suggestions.")
+            st.info("Navigate to the **Dashboard** tab to view detailed transaction insights, or **Recommendations** for personalized deal suggestions.")
             st.balloons()
 
-    # Display results if available
-    if st.session_state.transaction_analysis is not None:
-        st.divider()
-        st.subheader("Analysis Results")
 
-        results = st.session_state.transaction_analysis
+def transaction_dashboard_page():
+    """Dashboard displaying detailed transaction analysis results."""
+    st.title("Transaction Analytics Dashboard")
 
-        # Add download button for results
-        import json
-        results_json = json.dumps(results, indent=2)
+    if st.session_state.transaction_analysis is None:
+        st.info("**Step 2: View Your Transaction Insights**")
+        st.markdown("""
+        Once you upload transaction data, this dashboard will show:
+        - Customer loyalty rate and distribution
+        - Average order value (AOV) analysis by day
+        - Slowest days by transactions and revenue
+        - Best and worst selling items
+        - Tactical recommendations
 
-        st.download_button(
-            label="Download Transaction Insights (JSON)",
-            data=results_json,
-            file_name=f"transaction_insights_{datetime.now().strftime('%Y%m%d')}.json",
-            mime="application/json",
-            help="Download complete analysis results in JSON format"
-        )
+        **To get started:**
+        1. Navigate to the **Transaction Insights** tab
+        2. Upload your transaction data
+        3. Click "Analyze Transactions & Generate Insights"
+        4. Return here to see your detailed results
+        """)
+        return
 
-        st.divider()
+    results = st.session_state.transaction_analysis
 
-        # Slowest Days
-        st.markdown("### Slowest Day Analysis")
+    # View Data dropdown
+    with st.expander("View Data"):
+        if st.session_state.transaction_data is not None:
+            st.subheader("Transaction Data")
+            st.dataframe(st.session_state.transaction_data, use_container_width=True)
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**By Transaction Count**")
-            slowest_tx = results['Slowest Day (Transactions)']
-            st.metric(
-                "Slowest Day",
-                slowest_tx['Day'],
-                f"{slowest_tx['Transaction Count']} transactions"
-            )
+            # Show data summary
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Transactions", len(st.session_state.transaction_data))
+            with col2:
+                st.metric("Unique Customers", st.session_state.transaction_data['customer_id'].nunique())
+            with col3:
+                st.metric("Date Range", f"{st.session_state.transaction_data['date'].min()} to {st.session_state.transaction_data['date'].max()}")
+        else:
+            st.info("No transaction data available to display.")
 
-            # Show all days
-            with st.expander("View All Days"):
-                for day, count in slowest_tx['All Days'].items():
-                    st.text(f"{day}: {count} transactions")
+    st.divider()
 
-        with col2:
-            st.markdown("**By Revenue**")
-            slowest_rev = results['Slowest Day (Revenue)']
-            st.metric(
-                "Slowest Day",
-                slowest_rev['Day'],
-                slowest_rev['Revenue']
-            )
+    # Customer Loyalty and AOV - Side by side
+    col1, col2 = st.columns(2)
 
-            # Show all days
-            with st.expander("View All Days"):
-                for day, revenue in slowest_rev['All Days'].items():
-                    st.text(f"{day}: {revenue}")
-
-        st.divider()
-
+    with col1:
         # Customer Loyalty
         st.markdown("### Customer Loyalty")
         loyalty = results['Customer Loyalty']
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
+        # Metrics in a row
+        metric_col1, metric_col2, metric_col3 = st.columns(3)
+        with metric_col1:
             st.metric("Loyalty Rate", loyalty['Loyalty Rate'])
-        with col2:
-            st.metric("Repeat Customers", loyalty['Repeat Customers'])
-        with col3:
-            st.metric("New Customers", loyalty['New Customers'])
+        with metric_col2:
+            st.metric("Repeat", loyalty['Repeat Customers'])
+        with metric_col3:
+            st.metric("New", loyalty['New Customers'])
 
         # Loyalty chart
         fig = go.Figure(data=[go.Pie(
@@ -881,11 +1116,10 @@ def transaction_insights_page():
             values=[loyalty['Repeat Customers'], loyalty['New Customers']],
             hole=0.3
         )])
-        fig.update_layout(title="Customer Distribution", height=300)
+        fig.update_layout(title="Customer Distribution", height=300, margin=dict(l=20, r=20, t=40, b=20))
         st.plotly_chart(fig, use_container_width=True)
 
-        st.divider()
-
+    with col2:
         # Average Order Value
         st.markdown("### Average Order Value (AOV)")
         aov = results['Average Order Value']
@@ -894,40 +1128,119 @@ def transaction_insights_page():
 
         # AOV by day chart
         aov_by_day = aov['By Day of Week']
-        days = list(aov_by_day.keys())
-        values = [float(v.replace('$', '').replace(',', '')) for v in aov_by_day.values()]
+
+        # Define proper day order (Monday-Sunday)
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+        # Sort days in correct order
+        sorted_days = [day for day in day_order if day in aov_by_day]
+        sorted_values = [float(aov_by_day[day].replace('$', '').replace(',', '')) for day in sorted_days]
 
         fig = go.Figure(data=[go.Bar(
-            x=days,
-            y=values,
-            text=[f"${v:.2f}" for v in values],
+            x=sorted_days,
+            y=sorted_values,
+            text=[f"${v:.2f}" for v in sorted_values],
             textposition='auto',
         )])
         fig.update_layout(
             title="AOV by Day of Week",
             xaxis_title="Day",
             yaxis_title="Average Order Value ($)",
-            height=400
+            height=300,
+            margin=dict(l=20, r=20, t=40, b=20)
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        st.divider()
+    st.divider()
 
-        # Top Items
-        st.markdown("### Top Selling Items")
+    # Slowest Days
+    st.markdown("### Slowest Day Analysis")
 
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**By Transaction Count**")
+        slowest_tx = results['Slowest Day (Transactions)']
+        st.metric(
+            "Slowest Day",
+            slowest_tx['Day'],
+            f"{slowest_tx['Transaction Count']} transactions"
+        )
+
+        # Show all days
+        with st.expander("View All Days"):
+            for day, count in slowest_tx['All Days'].items():
+                st.text(f"{day}: {count} transactions")
+
+    with col2:
+        st.markdown("**By Revenue**")
+        slowest_rev = results['Slowest Day (Revenue)']
+        st.metric(
+            "Slowest Day",
+            slowest_rev['Day'],
+            slowest_rev['Revenue']
+        )
+
+        # Show all days
+        with st.expander("View All Days"):
+            for day, revenue in slowest_rev['All Days'].items():
+                st.text(f"{day}: {revenue}")
+
+    st.divider()
+
+    # Top Items
+    st.markdown("### Top Selling Items")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**By Revenue**")
+        # Convert to dataframe for sortable display
+        top_revenue_df = pd.DataFrame(results['Top Items (Revenue)'])
+        if not top_revenue_df.empty:
+            # Format revenue column
+            top_revenue_df['Revenue'] = top_revenue_df['revenue'].apply(lambda x: f"${x:,.2f}")
+            top_revenue_df['Quantity'] = top_revenue_df['quantity']
+            top_revenue_df['Item'] = top_revenue_df['item']
+            st.dataframe(
+                top_revenue_df[['Item', 'Revenue', 'Quantity']],
+                use_container_width=True,
+                hide_index=True
+            )
+
+    with col2:
+        st.markdown("**By Quantity Sold**")
+        # Convert to dataframe for sortable display
+        top_quantity_df = pd.DataFrame(results['Top Items (Quantity)'])
+        if not top_quantity_df.empty:
+            # Format revenue column
+            top_quantity_df['Item'] = top_quantity_df['item']
+            top_quantity_df['Quantity'] = top_quantity_df['quantity']
+            top_quantity_df['Revenue'] = top_quantity_df['revenue'].apply(lambda x: f"${x:,.2f}")
+            st.dataframe(
+                top_quantity_df[['Item', 'Quantity', 'Revenue']],
+                use_container_width=True,
+                hide_index=True
+            )
+
+    st.divider()
+
+    # Bottom Items
+    st.markdown("### Bottom Selling Items")
+
+    # Check if using new format or old format (backward compatibility)
+    if 'Bottom Items (Revenue)' in results and 'Bottom Items (Quantity)' in results:
+        # New format: two columns
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**By Revenue**")
             # Convert to dataframe for sortable display
-            top_revenue_df = pd.DataFrame(results['Top Items (Revenue)'])
-            if not top_revenue_df.empty:
+            bottom_revenue_df = pd.DataFrame(results['Bottom Items (Revenue)'])
+            if not bottom_revenue_df.empty:
                 # Format revenue column
-                top_revenue_df['Revenue'] = top_revenue_df['revenue'].apply(lambda x: f"${x:,.2f}")
-                top_revenue_df['Quantity'] = top_revenue_df['quantity']
-                top_revenue_df['Item'] = top_revenue_df['item']
+                bottom_revenue_df['Revenue'] = bottom_revenue_df['revenue'].apply(lambda x: f"${x:,.2f}")
+                bottom_revenue_df['Quantity'] = bottom_revenue_df['quantity']
+                bottom_revenue_df['Item'] = bottom_revenue_df['item']
                 st.dataframe(
-                    top_revenue_df[['Item', 'Revenue', 'Quantity']],
+                    bottom_revenue_df[['Item', 'Revenue', 'Quantity']],
                     use_container_width=True,
                     hide_index=True
                 )
@@ -935,24 +1248,20 @@ def transaction_insights_page():
         with col2:
             st.markdown("**By Quantity Sold**")
             # Convert to dataframe for sortable display
-            top_quantity_df = pd.DataFrame(results['Top Items (Quantity)'])
-            if not top_quantity_df.empty:
+            bottom_quantity_df = pd.DataFrame(results['Bottom Items (Quantity)'])
+            if not bottom_quantity_df.empty:
                 # Format revenue column
-                top_quantity_df['Item'] = top_quantity_df['item']
-                top_quantity_df['Quantity'] = top_quantity_df['quantity']
-                top_quantity_df['Revenue'] = top_quantity_df['revenue'].apply(lambda x: f"${x:,.2f}")
+                bottom_quantity_df['Item'] = bottom_quantity_df['item']
+                bottom_quantity_df['Quantity'] = bottom_quantity_df['quantity']
+                bottom_quantity_df['Revenue'] = bottom_quantity_df['revenue'].apply(lambda x: f"${x:,.2f}")
                 st.dataframe(
-                    top_quantity_df[['Item', 'Quantity', 'Revenue']],
+                    bottom_quantity_df[['Item', 'Quantity', 'Revenue']],
                     use_container_width=True,
                     hide_index=True
                 )
-
-        st.divider()
-
-        # Bottom Items
-        st.markdown("### Bottom Selling Items")
+    elif 'Bottom Items' in results:
+        # Old format: single column (backward compatibility)
         st.markdown("Items with lowest revenue performance:")
-        # Convert to dataframe for sortable display
         bottom_items_df = pd.DataFrame(results['Bottom Items'])
         if not bottom_items_df.empty:
             bottom_items_df['Item'] = bottom_items_df['item']
@@ -964,14 +1273,14 @@ def transaction_insights_page():
                 hide_index=True
             )
 
-        st.divider()
+    st.divider()
 
-        # Recommendations
-        st.markdown("### Tactical Recommendations")
-        st.markdown("Day-specific and item-specific actions to improve performance:")
+    # Recommendations
+    st.markdown("### Tactical Recommendations")
+    st.markdown("Day-specific and item-specific actions to improve performance:")
 
-        for i, rec in enumerate(results['Recommendations'], 1):
-            st.markdown(f"**{i}.** {rec}")
+    for i, rec in enumerate(results['Recommendations'], 1):
+        st.markdown(f"**{i}.** {rec}")
 
 
 # Main app navigation
@@ -1007,7 +1316,7 @@ def main():
         transaction_insights_page()
 
     with tab3:
-        dashboard_page()
+        transaction_dashboard_page()
 
     with tab4:
         recommendations_page()
