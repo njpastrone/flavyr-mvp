@@ -17,9 +17,12 @@ flavyr-mvp/
 ├── IMPLEMENTATION_SUMMARY.md    # Complete implementation details
 ├── app.py                       # Main Streamlit application
 ├── requirements.txt             # Python dependencies
-├── test_app.py                  # Test script
 ├── .gitignore                   # Git exclusions
-├── planning_docs/               # All planning and architecture documents
+├── docs/                        # All documentation
+│   ├── README.md               # Documentation index
+│   ├── codebase_reviews/       # Code analysis and refactoring docs
+│   └── ux_reviews/             # UX analysis and improvement plans
+├── planning_docs/               # Original planning and architecture documents
 │   └── CLAUDE.md               # Planning docs context
 ├── data/                        # Sample data and benchmarks
 │   ├── sample_restaurant_pos_data.csv
@@ -153,7 +156,7 @@ See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
 - Created centralized [src/config.py](src/config.py) for all constants
 - Established single source of truth for KPI definitions
 - Improved maintainability significantly
-- See [SIMPLIFICATION_RESULTS.md](SIMPLIFICATION_RESULTS.md) for details
+- See [docs/codebase_reviews/SIMPLIFICATION_RESULTS.md](docs/codebase_reviews/SIMPLIFICATION_RESULTS.md) for details
 
 ## Next Steps
 

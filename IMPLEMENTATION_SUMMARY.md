@@ -545,10 +545,10 @@ A thorough analysis of the codebase identified opportunities to reduce complexit
 - Foundation set for future improvements
 
 **Documentation Created:**
-- `CODEBASE_ANALYSIS.md` - Comprehensive 868-line analysis
-- `CODEBASE_SUMMARY.md` - Executive summary
-- `SIMPLIFICATION_PLAN.md` - 5-phase implementation roadmap
-- `SIMPLIFICATION_RESULTS.md` - Detailed results report
+- [docs/codebase_reviews/CODEBASE_ANALYSIS.md](docs/codebase_reviews/CODEBASE_ANALYSIS.md) - Comprehensive 868-line analysis
+- [docs/codebase_reviews/CODEBASE_SUMMARY.md](docs/codebase_reviews/CODEBASE_SUMMARY.md) - Executive summary
+- [docs/codebase_reviews/SIMPLIFICATION_PLAN.md](docs/codebase_reviews/SIMPLIFICATION_PLAN.md) - 5-phase implementation roadmap
+- [docs/codebase_reviews/SIMPLIFICATION_RESULTS.md](docs/codebase_reviews/SIMPLIFICATION_RESULTS.md) - Detailed results report
 
 **Optional Future Phases:**
 - Phase 3: Extract formatters.py (-40 lines potential)
