@@ -8,10 +8,11 @@ Addresses Founders' original challenge requirements:
 - Average Order Value (AOV) analysis
 - Best/worst selling items identification
 - Day-specific actionable recommendations
+- Derives aggregated metrics for strategic analysis
 """
 
 import pandas as pd
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 
 
@@ -299,3 +300,117 @@ def format_results_for_display(results: Dict) -> Dict:
     }
 
     return formatted
+
+
+def derive_aggregated_metrics(df: pd.DataFrame, cuisine_type: str, dining_model: str) -> pd.DataFrame:
+    """
+    Derive aggregated performance metrics from transaction-level data.
+
+    This function bridges transaction-level data with strategic analysis by calculating
+    the 7 core KPIs used in the Dashboard and Recommendations modules.
+
+    Args:
+        df: Transaction DataFrame with columns: date, total, customer_id, item_name, day_of_week
+        cuisine_type: Restaurant cuisine type (e.g., "Italian", "American")
+        dining_model: Restaurant dining model (e.g., "Fine Dining", "Casual")
+
+    Returns:
+        Single-row DataFrame with aggregated metrics matching the restaurants table schema:
+        - cuisine_type, dining_model
+        - avg_ticket, covers, labor_cost_pct, food_cost_pct
+        - table_turnover, sales_per_sqft, expected_customer_repeat_rate
+
+    Notes:
+        - Some metrics (labor_cost_pct, food_cost_pct, table_turnover, sales_per_sqft)
+          cannot be derived from transaction data alone and are set to reasonable defaults
+        - These defaults allow the pipeline to function but should be manually updated if available
+    """
+
+    # Calculate derivable metrics
+    avg_ticket = df['total'].mean()
+
+    # Covers = unique transactions (assuming 1 transaction = 1 customer visit)
+    # Group by date and customer to count unique visits
+    daily_visits = df.groupby('date')['customer_id'].nunique()
+    avg_daily_covers = daily_visits.mean()
+
+    # Customer loyalty rate (can be derived from transaction data)
+    customer_purchases = df.groupby('customer_id').size()
+    total_customers = len(customer_purchases)
+    repeat_customers = (customer_purchases > 1).sum()
+    loyalty_rate = (repeat_customers / total_customers) if total_customers > 0 else 0.0
+
+    # Metrics that CANNOT be derived from transaction data alone
+    # Set to industry-neutral defaults (will appear as "at benchmark" in comparisons)
+    # These should be updated with actual data if available
+    labor_cost_pct = 0.30  # 30% - typical restaurant average
+    food_cost_pct = 0.30   # 30% - typical restaurant average
+    table_turnover = 2.0   # 2x per service period - typical average
+
+    # Sales per sqft: Cannot be calculated without square footage data
+    # Use a neutral default that won't skew analysis
+    sales_per_sqft = 100.0  # Placeholder - should be updated with actual data
+
+    # Create aggregated dataframe
+    aggregated = pd.DataFrame([{
+        'cuisine_type': cuisine_type,
+        'dining_model': dining_model,
+        'avg_ticket': round(avg_ticket, 2),
+        'covers': int(round(avg_daily_covers)),
+        'labor_cost_pct': labor_cost_pct,
+        'food_cost_pct': food_cost_pct,
+        'table_turnover': table_turnover,
+        'sales_per_sqft': sales_per_sqft,
+        'expected_customer_repeat_rate': round(loyalty_rate, 4)
+    }])
+
+    return aggregated
+
+
+def get_derivation_metadata(df: pd.DataFrame) -> Dict:
+    """
+    Provide metadata about which metrics were derived vs. defaulted.
+
+    Args:
+        df: Transaction DataFrame
+
+    Returns:
+        Dictionary with derivation status for each metric
+    """
+    return {
+        'avg_ticket': {
+            'derived': True,
+            'source': 'Mean of transaction totals',
+            'confidence': 'high'
+        },
+        'covers': {
+            'derived': True,
+            'source': 'Average daily unique customer visits',
+            'confidence': 'high'
+        },
+        'expected_customer_repeat_rate': {
+            'derived': True,
+            'source': 'Percentage of customers with multiple transactions',
+            'confidence': 'high'
+        },
+        'labor_cost_pct': {
+            'derived': False,
+            'source': 'Default value (30%) - update with actual data for accurate analysis',
+            'confidence': 'low'
+        },
+        'food_cost_pct': {
+            'derived': False,
+            'source': 'Default value (30%) - update with actual data for accurate analysis',
+            'confidence': 'low'
+        },
+        'table_turnover': {
+            'derived': False,
+            'source': 'Default value (2.0x) - update with actual data for accurate analysis',
+            'confidence': 'low'
+        },
+        'sales_per_sqft': {
+            'derived': False,
+            'source': 'Default value (100) - update with actual data for accurate analysis',
+            'confidence': 'low'
+        }
+    }

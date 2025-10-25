@@ -55,14 +55,27 @@ All Phase 1 MVP components have been successfully implemented and tested.
 - [x] Top/bottom selling items identification
 - [x] Day-specific tactical recommendations
 
+### Sprint 8: Data Pipeline Reorganization (DONE - October 24, 2025)
+- [x] Restructured app into sequential pipeline: Transaction Insights → Dashboard → Recommendations → Export
+- [x] Added `transactions` table to database schema
+- [x] Implemented metric derivation engine (derive_aggregated_metrics)
+- [x] Added transaction storage/retrieval functions to data_loader.py
+- [x] Integrated full pipeline execution in Transaction Insights tab
+- [x] Updated all empty state messages to guide users through pipeline
+- [x] Removed standalone "Upload Data" tab
+- [x] Created comprehensive documentation (DATA_PIPELINE_REORGANIZATION.md, QUICK_START_GUIDE.md)
+- [x] End-to-end pipeline testing passed
+
 ### Testing & Documentation (DONE)
 - [x] test_app.py - Complete flow validation
 - [x] README.md - User documentation
 - [x] .gitignore - Proper exclusions
 - [x] All tests passing successfully
+- [x] Pipeline reorganization tested end-to-end
 
 ## Test Results
 
+### Original Implementation Test
 ```
 Test Date: 2025-10-23
 Sample Data: American Full Service restaurant (30 days)
@@ -73,6 +86,35 @@ Results:
 - Recommendations Generated: 1 (Improve Slow Days)
 - Database: Successfully storing and retrieving data
 - Validation: All checks passing
+```
+
+### Pipeline Reorganization Test
+```
+Test Date: 2025-10-24
+Sample Data: Italian Casual Dining (210 transactions, 30 days)
+
+Results:
+Transaction Analysis:
+- Slowest day: Wednesday
+- Loyalty rate: 82%
+- Average order value: $46.90
+- Top item: Ribeye Steak
+
+Metric Derivation:
+- Avg Ticket: $46.90 (derived)
+- Covers: 7/day (derived)
+- Loyalty Rate: 82% (derived)
+- Cost metrics: Using industry defaults (30%)
+
+Strategic Analysis:
+- Performance Grade: A
+- Underperforming KPIs: 2
+- Recommendations: 2 (Increase Quantity of Sales, Improve Slow Days)
+
+Database:
+- Restaurant data stored successfully
+- 210 transactions stored and retrievable
+- Full pipeline execution: SUCCESS
 ```
 
 ## File Count
@@ -126,6 +168,14 @@ Total Python files: 8 core modules
    - Top 3 and bottom 3 selling items ranking
    - Day-specific tactical recommendations
    - Interactive visualizations (pie charts, bar charts)
+
+7. **Integrated Data Pipeline** (NEW - October 24, 2025)
+   - Transaction-first workflow: single upload triggers full analysis
+   - Automatic metric derivation from transaction data
+   - Database storage for both transactions and aggregated metrics
+   - Sequential pipeline: Transaction Insights → Dashboard → Recommendations → Export
+   - Clear data lineage from transactions to recommendations
+   - Dual analysis: tactical (transaction-level) + strategic (KPI-level)
 
 ## How to Run
 

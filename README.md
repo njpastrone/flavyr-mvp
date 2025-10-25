@@ -20,56 +20,43 @@ The app will open in your browser at `http://localhost:8501`
 
 ## Usage
 
-### Upload Page
-1. Click "Upload" in the sidebar
-2. Upload your restaurant's POS data CSV file
-3. Review the data preview
-4. Click "Process Data"
+FLAVYR now uses a streamlined, transaction-first workflow that provides both tactical and strategic insights from a single data upload.
 
-### Dashboard Page
-- View your performance grade
-- See KPI comparisons vs industry benchmarks
+### Step 1: Transaction Insights (Primary Entry Point)
+1. Navigate to the "Transaction Insights" tab
+2. Select your restaurant type (cuisine and dining model)
+3. Upload your transaction-level CSV file (date, total, customer_id, item_name, day_of_week)
+4. Click "Analyze Transactions & Generate Insights"
+5. This triggers the complete pipeline:
+   - Tactical analysis (slowest days, loyalty, AOV, item rankings)
+   - Metric derivation (auto-calculates KPIs from transactions)
+   - Benchmark comparison
+   - Strategic recommendations
+
+### Step 2: Dashboard
+- View your performance grade (A-F)
+- See 7 KPI comparisons vs industry benchmarks
 - Analyze performance gaps with visual charts
+- Metrics automatically derived from your transaction data
 
-### Recommendations Page
-- Review identified business problems
-- See recommended deal types
+### Step 3: Recommendations
+- Review prioritized business problems
+- See recommended deal types ranked by severity
 - Understand the rationale behind each recommendation
+- Get both tactical and strategic improvement suggestions
 
-### Transaction Insights Page
-- Upload transaction-level data for granular analytics
-- Identify slowest days by transactions and revenue
-- Calculate actual customer loyalty rate
-- Analyze average order value by day
-- Discover top and bottom selling items
-- Get day-specific tactical recommendations
-
-### Report Page
+### Step 4: Export Report
 - Generate downloadable PDF or HTML reports
-- Share performance insights with your team
+- Share comprehensive performance insights with your team
+- Includes both transaction insights and strategic analysis
+
+For detailed usage instructions, see [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)
 
 ## CSV Format
 
-### Aggregated POS Data Format (Dashboard & Recommendations)
+### Transaction-Level Data Format (Primary Input)
 
-Your POS data CSV must include these columns:
-
-- `date` - Date in YYYY-MM-DD format
-- `cuisine_type` - Restaurant cuisine (e.g., "American", "Italian")
-- `dining_model` - Service model (e.g., "Full Service", "Fast Casual")
-- `avg_ticket` - Average check size ($)
-- `covers` - Number of customers served
-- `labor_cost_pct` - Labor cost as % of revenue (0-100)
-- `food_cost_pct` - Food cost as % of revenue (0-100)
-- `table_turnover` - Tables turned per service period
-- `sales_per_sqft` - Revenue per square foot ($)
-- `expected_customer_repeat_rate` - Repeat customer rate (0-1)
-
-See [data/sample_restaurant_pos_data.csv](data/sample_restaurant_pos_data.csv) for an example.
-
-### Transaction-Level Data Format (Transaction Insights)
-
-For granular analytics, upload transaction data with these columns:
+Upload transaction data with these required columns:
 
 - `date` - Transaction date in YYYY-MM-DD format
 - `total` - Transaction amount ($)
@@ -77,7 +64,15 @@ For granular analytics, upload transaction data with these columns:
 - `item_name` - Item or product name
 - `day_of_week` - Full day name (Monday, Tuesday, etc.)
 
-See [data/sample_transaction_data.csv](data/sample_transaction_data.csv) for an example.
+**Sample file:** [data/sample_transaction_data.csv](data/sample_transaction_data.csv)
+
+**What you get:**
+- Tactical insights (slowest days, loyalty, AOV, item rankings)
+- Auto-calculated strategic metrics (avg_ticket, covers, loyalty_rate)
+- Benchmark comparison and performance grading
+- Personalized deal recommendations
+
+**Note:** Some metrics (labor_cost_pct, food_cost_pct, table_turnover, sales_per_sqft) cannot be derived from transaction data and will use industry defaults. Update these manually if you have actual data.
 
 ## Testing
 

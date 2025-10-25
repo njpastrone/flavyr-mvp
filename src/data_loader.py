@@ -81,6 +81,20 @@ def initialize_database():
         )
     ''')
 
+    # Create transactions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurant_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            total REAL NOT NULL,
+            customer_id TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            day_of_week TEXT NOT NULL,
+            FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -295,6 +309,87 @@ def get_all_deal_bank_data() -> pd.DataFrame:
     conn.close()
 
     return df
+
+
+def store_transaction_data(df: pd.DataFrame, restaurant_id: int) -> int:
+    """
+    Store transaction-level data in SQLite database.
+
+    Args:
+        df: Transaction DataFrame with columns: date, total, customer_id, item_name, day_of_week
+        restaurant_id: ID of the restaurant these transactions belong to
+
+    Returns:
+        Number of transactions inserted
+    """
+    conn = get_db_connection()
+
+    # Add restaurant_id to dataframe
+    df_copy = df.copy()
+    df_copy['restaurant_id'] = restaurant_id
+
+    # Convert date to string format if needed
+    if df_copy['date'].dtype == 'datetime64[ns]':
+        df_copy['date'] = df_copy['date'].dt.strftime('%Y-%m-%d')
+
+    # Reorder columns to match table schema
+    column_order = ['restaurant_id', 'date', 'total', 'customer_id', 'item_name', 'day_of_week']
+    df_copy = df_copy[column_order]
+
+    # Insert into database
+    df_copy.to_sql('transactions', conn, if_exists='append', index=False)
+
+    row_count = len(df_copy)
+
+    conn.close()
+
+    return row_count
+
+
+def get_transaction_data(restaurant_id: int) -> Optional[pd.DataFrame]:
+    """
+    Retrieve all transaction data for a specific restaurant.
+
+    Args:
+        restaurant_id: Restaurant record ID
+
+    Returns:
+        Dataframe with transaction data or None if not found
+    """
+    conn = get_db_connection()
+    query = "SELECT * FROM transactions WHERE restaurant_id = ?"
+    df = pd.read_sql_query(query, conn, params=(restaurant_id,))
+    conn.close()
+
+    if len(df) == 0:
+        return None
+
+    # Convert date back to datetime
+    df['date'] = pd.to_datetime(df['date'])
+
+    return df
+
+
+def delete_transaction_data(restaurant_id: int) -> int:
+    """
+    Delete all transaction data for a specific restaurant.
+
+    Args:
+        restaurant_id: Restaurant record ID
+
+    Returns:
+        Number of rows deleted
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM transactions WHERE restaurant_id = ?", (restaurant_id,))
+    deleted_count = cursor.rowcount
+
+    conn.commit()
+    conn.close()
+
+    return deleted_count
 
 
 def setup_database():

@@ -158,6 +158,38 @@ See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
 - Improved maintainability significantly
 - See [docs/codebase_reviews/SIMPLIFICATION_RESULTS.md](docs/codebase_reviews/SIMPLIFICATION_RESULTS.md) for details
 
+**Data Pipeline Reorganization (October 24, 2025):**
+- Restructured application into clear sequential pipeline: Transaction Insights → Dashboard → Recommendations → Export
+- Transaction Insights is now the primary entry point (was separate standalone tab)
+- Added metric derivation engine: automatically calculates KPIs from transaction data
+- Added `transactions` table to database for storing raw transaction data
+- Integrated full pipeline execution: single upload triggers tactical + strategic analysis
+- Removed fragmented "Upload Data" tab in favor of unified transaction-first workflow
+- See [DATA_PIPELINE_REORGANIZATION.md](DATA_PIPELINE_REORGANIZATION.md) and [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md) for details
+
+## Data Pipeline Architecture
+
+**Transaction-First Workflow:**
+```
+Transaction Data (CSV Upload)
+    ↓
+Tactical Analysis (slowest days, loyalty, AOV, item rankings)
+    ↓
+Metric Derivation (avg_ticket, covers, repeat_rate calculated; costs use defaults)
+    ↓
+Strategic Analysis (benchmark comparison, performance grading)
+    ↓
+Recommendations (personalized deal suggestions)
+    ↓
+Reports (PDF/HTML export)
+```
+
+**Benefits:**
+- Single upload provides both tactical and strategic insights
+- Clear data lineage from transactions → metrics → recommendations
+- Traceable and extensible architecture
+- Matches restaurant operators' mental model (transactions first)
+
 ## Next Steps
 
 1. **Pilot Testing** - Deploy to 3-5 NYC restaurants

@@ -42,11 +42,22 @@ Deal recommendations mapped to business problems:
 - deal_types (TEXT)
 - rationale (TEXT)
 
+### transactions table
+Transaction-level data for granular analytics:
+- id (PRIMARY KEY)
+- restaurant_id (INTEGER, FOREIGN KEY)
+- date (TEXT)
+- total (REAL)
+- customer_id (TEXT)
+- item_name (TEXT)
+- day_of_week (TEXT)
+
 ## Usage
 - Database is automatically initialized on first app run
 - Benchmark data is loaded from data/sample_industry_benchmark_data.csv
 - Deal bank data is loaded from data/deal_bank_strategy_matrix.csv
-- Restaurant data is stored on upload and analysis
+- Transaction data is uploaded via Transaction Insights tab
+- Restaurant aggregated metrics are derived from transaction data
 
 ## Notes
 - SQLite chosen for simplicity (no server required)

@@ -17,12 +17,14 @@ from src.data_loader import (
     store_restaurant_data,
     get_restaurant_data,
     get_benchmark_data,
-    get_all_deal_bank_data
+    get_all_deal_bank_data,
+    store_transaction_data,
+    get_transaction_data
 )
 from src.analyzer import analyze_restaurant_performance
 from src.recommender import generate_recommendations
 from src.report_generator import export_to_pdf, export_to_html
-from src.transaction_analyzer import analyze_transactions, format_results_for_display
+from src.transaction_analyzer import analyze_transactions, format_results_for_display, derive_aggregated_metrics
 from utils.transaction_validator import validate_transaction_csv, get_transaction_data_summary, prepare_transaction_data
 from src.config import KPIConfig
 
@@ -52,6 +54,14 @@ if 'transaction_data' not in st.session_state:
     st.session_state.transaction_data = None
 if 'transaction_analysis' not in st.session_state:
     st.session_state.transaction_analysis = None
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = None  # 'transactions' or 'aggregated'
+if 'pipeline_stage' not in st.session_state:
+    st.session_state.pipeline_stage = None  # 'upload', 'analysis', 'recommendations'
+if 'cuisine_type' not in st.session_state:
+    st.session_state.cuisine_type = None
+if 'dining_model' not in st.session_state:
+    st.session_state.dining_model = None
 
 
 def home_page():
@@ -61,43 +71,65 @@ def home_page():
     st.markdown("""
     ### Restaurant Performance Diagnostic Platform
 
-    FLAVYR helps restaurants identify operational issues and receive targeted recommendations
-    based on industry benchmarks.
+    FLAVYR transforms your transaction data into actionable insights and strategic recommendations.
 
-    **How it works:**
+    **Data Pipeline:**
 
-    1. **Upload Data** - Upload your restaurant's POS data in CSV format
-    2. **View Dashboard** - Compare your performance against industry benchmarks
-    3. **Get Recommendations** - Receive personalized deal suggestions to improve performance
-    4. **Export Reports** - Download comprehensive reports in PDF or HTML format
+    **Transaction Insights** → **Dashboard** → **Recommendations** → **Export Report**
+
+    ---
+
+    ### How It Works
+
+    1. **Transaction Insights** - Upload transaction-level data (date, total, customer_id, item_name, day_of_week)
+    2. **Automatic Analysis** - System derives performance metrics and compares to industry benchmarks
+    3. **Dashboard** - View your KPI performance vs. competitors
+    4. **Recommendations** - Get personalized deal suggestions to improve performance
+    5. **Export Reports** - Download comprehensive reports in PDF or HTML format
 
     ---
 
     ### Getting Started
 
-    Navigate to the **Upload Data** tab to begin analyzing your restaurant's performance.
+    Navigate to the **Transaction Insights** tab to upload your data and begin analysis.
 
-    **Required data format:**
-    - Daily POS data in CSV format
-    - Must include: date, cuisine_type, dining_model
-    - Key metrics: avg_ticket, covers, labor_cost_pct, food_cost_pct, table_turnover,
-      sales_per_sqft, expected_customer_repeat_rate
+    **What You'll Get:**
+
+    **Tactical Insights:**
+    - Slowest days identification
+    - Customer loyalty rate analysis
+    - Average order value breakdown
+    - Best/worst selling items
+
+    **Strategic Analysis:**
+    - Performance grade (A-F) vs. industry benchmarks
+    - Gap analysis for 7 key performance indicators
+    - Prioritized deal recommendations
+    - Downloadable executive reports
 
     ---
 
-    ### What You'll Get
-
-    - Performance grade (A-F) based on industry benchmarks
-    - Detailed gap analysis for 7 key performance indicators
-    - Prioritized recommendations for improvement
-    - Downloadable reports for sharing with your team
-
     """)
 
-    if st.session_state.analysis_results is not None:
-        st.success("You have data loaded. Navigate to Dashboard to view your results.")
+    # Pipeline status indicator
+    if st.session_state.data_source is not None:
+        st.success(f"Data Source: {st.session_state.data_source.capitalize()}")
+
+        if st.session_state.analysis_results is not None:
+            analysis = st.session_state.analysis_results
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Restaurant Type", f"{analysis['cuisine_type']} - {analysis['dining_model']}")
+            with col2:
+                st.metric("Performance Grade", analysis['performance_grade'])
+            with col3:
+                st.metric("Pipeline Stage", "Complete")
+
+            st.info("Navigate to **Dashboard** or **Recommendations** tabs to view your results.")
+        else:
+            st.warning("Data uploaded but analysis incomplete. Please re-upload in Transaction Insights.")
     else:
-        st.info("No data loaded yet. Go to Upload Data to get started.")
+        st.info("No data loaded yet. Go to **Transaction Insights** to get started.")
 
 
 def upload_page():
@@ -240,14 +272,19 @@ def dashboard_page():
     st.title("Performance Dashboard")
 
     if st.session_state.analysis_results is None:
-        st.info("**Get Started with FLAVYR**")
+        st.info("**Step 2: View Your Performance Metrics**")
         st.markdown("""
-        Upload your restaurant's POS data to see:
-        - Performance grade and KPI comparisons
-        - Gaps vs industry benchmarks
-        - Visual performance charts
+        Once you upload transaction data, this dashboard will show:
+        - Performance grade (A-F) based on industry benchmarks
+        - KPI comparisons across 7 key metrics
+        - Performance gaps visualization
+        - Metrics derived automatically from your transaction data
 
-        Navigate to the **Upload** page using the sidebar to begin.
+        **To get started:**
+        1. Navigate to the **Transaction Insights** tab
+        2. Upload your transaction data
+        3. Click "Analyze Transactions & Generate Insights"
+        4. Return here to see your results
         """)
         return
 
@@ -268,6 +305,10 @@ def dashboard_page():
     with col3:
         issues = len(analysis['underperforming_kpis'])
         st.metric("Areas Needing Attention", issues)
+
+    # Data source indicator
+    if st.session_state.data_source == 'transactions':
+        st.info("Metrics derived from transaction data. Some metrics use industry defaults where transaction data cannot provide values (labor costs, food costs, table turnover, sales per sqft).")
 
     st.divider()
 
@@ -417,11 +458,19 @@ def recommendations_page():
     st.title("Deal Recommendations")
 
     if st.session_state.recommendation_results is None:
-        st.info("**Deal Recommendations**")
+        st.info("**Step 3: Get Personalized Deal Recommendations**")
         st.markdown("""
-        Get personalized deal suggestions based on your performance gaps.
+        Once your data is analyzed, this page will show:
+        - Personalized deal suggestions based on your performance gaps
+        - Ranked recommendations by severity
+        - Rationale for each recommendation
+        - Tactical and strategic improvement opportunities
 
-        Navigate to the **Upload** page to get started.
+        **To get started:**
+        1. Navigate to the **Transaction Insights** tab
+        2. Upload your transaction data
+        3. Click "Analyze Transactions & Generate Insights"
+        4. Return here to see your personalized recommendations
         """)
         return
 
@@ -521,14 +570,23 @@ def report_page():
     st.title("Performance Report")
 
     if st.session_state.analysis_results is None:
-        st.info("**Performance Reports**")
+        st.info("**Step 4: Export Your Performance Report**")
         st.markdown("""
-        Generate comprehensive PDF and HTML reports with:
+        Once your analysis is complete, you can generate comprehensive reports with:
         - Executive summary
         - KPI comparison tables
+        - Performance gap visualization
         - Deal recommendations
+        - Transaction insights
 
-        Navigate to the **Upload** page to begin.
+        **Available Formats:**
+        - PDF (for printing and sharing)
+        - HTML (for web viewing)
+
+        **To get started:**
+        1. Navigate to the **Transaction Insights** tab
+        2. Upload your transaction data and run analysis
+        3. Return here to generate and download reports
         """)
         return
 
@@ -606,22 +664,48 @@ def report_page():
 
 
 def transaction_insights_page():
-    """Page 5: Transaction-level analytics."""
+    """Page 1: Transaction-level analytics - PRIMARY DATA ENTRY POINT."""
     st.title("Transaction Insights")
 
     st.markdown("""
-    ### Granular Sales Analytics
+    ### Step 1: Upload Your Transaction Data
 
-    Upload transaction-level data to get detailed insights:
+    This is the starting point of your FLAVYR analysis. Upload transaction-level data to unlock:
+
+    **Tactical Insights:**
     - Slowest days by transactions and revenue
     - Customer loyalty rate
     - Average order value (AOV) analysis
     - Best and worst selling items
     - Day-specific tactical recommendations
 
+    **Strategic Analysis:**
+    - Automatic performance metric calculations
+    - Industry benchmark comparisons
+    - Deal recommendations
+
     **Required CSV format:**
     - date, total, customer_id, item_name, day_of_week
     """)
+
+    # Restaurant Info Input (for metric derivation)
+    st.subheader("Restaurant Information")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        cuisine_type = st.selectbox(
+            "Cuisine Type",
+            ["American", "Italian", "Mexican", "Japanese", "Vegetarian", "Indian", "Seafood", "Mediterranean", "Asian Fusion"],
+            help="Select your restaurant's primary cuisine type"
+        )
+    with col2:
+        dining_model = st.selectbox(
+            "Dining Model",
+            ["Full Service", "Casual Dining", "Fast Casual", "Quick Service"],
+            help="Select your restaurant's service model"
+        )
+
+    st.divider()
 
     # File uploader
     uploaded_file = st.file_uploader(
@@ -674,20 +758,54 @@ def transaction_insights_page():
             st.dataframe(df.head(10), use_container_width=True)
 
         # Analyze button
-        if st.button("Analyze Transactions", type="primary"):
-            with st.spinner("Analyzing transaction data..."):
-                # Prepare data
+        if st.button("Analyze Transactions & Generate Insights", type="primary"):
+            with st.spinner("Running complete analysis pipeline..."):
+                # Step 1: Prepare transaction data
                 cleaned_df = prepare_transaction_data(df)
 
-                # Run analysis
+                # Step 2: Run tactical transaction analysis
                 results = analyze_transactions(cleaned_df)
                 formatted_results = format_results_for_display(results)
+
+                # Step 3: Derive aggregated metrics from transactions
+                st.info("Deriving performance metrics from transaction data...")
+                aggregated_df = derive_aggregated_metrics(cleaned_df, cuisine_type, dining_model)
+
+                # Step 4: Store in database
+                st.info("Storing data...")
+                restaurant_id = store_restaurant_data(aggregated_df)
+                transaction_count = store_transaction_data(cleaned_df, restaurant_id)
+
+                # Step 5: Get benchmark data
+                st.info("Comparing to industry benchmarks...")
+                benchmark_df = get_benchmark_data(cuisine_type, dining_model)
+
+                if benchmark_df is None:
+                    st.error(f"No benchmark data found for {cuisine_type} - {dining_model}")
+                    st.warning("Analysis complete but benchmark comparison unavailable.")
+                else:
+                    # Step 6: Run performance analysis
+                    restaurant_df = get_restaurant_data(restaurant_id)
+                    analysis_results = analyze_restaurant_performance(restaurant_df, benchmark_df)
+                    st.session_state.analysis_results = analysis_results
+
+                    # Step 7: Generate recommendations
+                    deal_bank_df = get_all_deal_bank_data()
+                    recommendation_results = generate_recommendations(analysis_results, deal_bank_df)
+                    st.session_state.recommendation_results = recommendation_results
 
                 # Store in session state
                 st.session_state.transaction_data = cleaned_df
                 st.session_state.transaction_analysis = formatted_results
+                st.session_state.restaurant_id = restaurant_id
+                st.session_state.data_source = 'transactions'
+                st.session_state.pipeline_stage = 'recommendations'
+                st.session_state.cuisine_type = cuisine_type
+                st.session_state.dining_model = dining_model
 
-            st.success("Analysis complete!")
+            st.success("Complete analysis pipeline finished!")
+            st.success(f"Stored {transaction_count} transactions and generated strategic insights.")
+            st.info("Navigate to the **Dashboard** tab to see performance metrics, or **Recommendations** tab for deal suggestions.")
             st.balloons()
 
     # Display results if available
@@ -873,13 +991,12 @@ def main():
 
     st.divider()
 
-    # Horizontal tabs without emojis
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    # Horizontal tabs without emojis - ordered to reflect data pipeline
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Home",
-        "Upload Data",
+        "Transaction Insights",
         "Dashboard",
         "Recommendations",
-        "Transaction Insights",
         "Export Report"
     ])
 
@@ -887,7 +1004,7 @@ def main():
         home_page()
 
     with tab2:
-        upload_page()
+        transaction_insights_page()
 
     with tab3:
         dashboard_page()
@@ -896,9 +1013,6 @@ def main():
         recommendations_page()
 
     with tab5:
-        transaction_insights_page()
-
-    with tab6:
         report_page()
 
 
