@@ -44,11 +44,12 @@ FLAVYR now uses a streamlined, transaction-first workflow that provides both tac
 - See recommended deal types ranked by severity
 - Understand the rationale behind each recommendation
 - Get both tactical and strategic improvement suggestions
-- **NEW: Full Transparency Features**
+- **Full Transparency Features** (October 25, 2025):
   - "How Was This Calculated?" - Step-by-step calculation explanations
   - "Why This Severity?" - Visual severity scales with thresholds
   - "Confidence Details" - Data quality indicators with confidence scores
   - Data source badges showing exactly where insights came from
+  - Professional visualizations with color-coded indicators
 
 ### Step 4: Export Report
 - Generate downloadable PDF or HTML reports

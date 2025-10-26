@@ -38,6 +38,14 @@ from src.transparency_helpers import (
     format_confidence_bar,
     generate_confidence_explanation
 )
+from src.visualization_helpers import (
+    create_metric_comparison_chart,
+    create_performance_gauge,
+    calculate_performance_score,
+    create_metric_card_data,
+    create_gap_progress_bar,
+    generate_performance_score_explanation
+)
 from utils.transaction_validator import validate_transaction_csv, get_transaction_data_summary, prepare_transaction_data
 from src.config import KPIConfig
 
@@ -90,7 +98,7 @@ def home_page():
 
     **Data Pipeline:**
 
-    **Transaction Insights** → **Dashboard** → **Recommendations** → **Export Report**
+    **Transaction Insights** → **Dashboard** → **Recommendations**
 
     ---
 
@@ -100,7 +108,6 @@ def home_page():
     2. **Dashboard** - View detailed transaction analytics (loyalty, AOV, slowest days, item rankings)
     3. **Automatic Analysis** - System derives performance metrics and compares to industry benchmarks
     4. **Recommendations** - Get personalized deal suggestions to improve performance
-    5. **Export Reports** - Download comprehensive reports in PDF or HTML format
 
     ---
 
@@ -120,7 +127,7 @@ def home_page():
     - Performance grade (A-F) vs. industry benchmarks
     - Gap analysis for 3 core performance indicators
     - Prioritized deal recommendations
-    - Downloadable executive reports
+    - Visual benchmark comparisons
 
     ---
 
@@ -301,11 +308,144 @@ def recommendations_page():
     rec_results = st.session_state.recommendation_results
     analysis = st.session_state.analysis_results
 
-    # Summary
-    st.subheader("Performance Summary")
-    st.info(analysis['summary'])
+    # ============================================================
+    # SECTION 1: Performance Scorecard
+    # ============================================================
+    st.markdown("### Performance Overview")
+
+    # Calculate performance score and metrics
+    gaps = analysis.get('gaps', {})
+    performance_score = calculate_performance_score(gaps)
+    metric_counts = create_metric_card_data(gaps)
+
+    # Row 1: Grade badge, gauge chart, and metric cards
+    col1, col2, col3 = st.columns([1, 2, 2])
+
+    with col1:
+        # Grade badge
+        grade = analysis['performance_grade']
+        grade_colors = {
+            'A': '#17A2B8', 'B': '#28A745', 'C': '#FFC107',
+            'D': '#FF8C00', 'F': '#DC3545'
+        }
+        grade_color = grade_colors.get(grade, '#6C757D')
+
+        st.markdown(f"""
+        <div style="text-align: center; padding: 20px; background-color: {grade_color};
+                    border-radius: 10px; color: white;">
+            <div style="font-size: 48px; font-weight: bold; margin-bottom: 10px;">{grade}</div>
+            <div style="font-size: 16px;">Overall Grade</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style="text-align: center; margin-top: 10px;">
+            <div style="font-size: 14px; opacity: 0.7;">
+                {analysis['cuisine_type']}<br>
+                {analysis['dining_model']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        # Performance gauge
+        gauge_fig = create_performance_gauge(performance_score, grade)
+        st.plotly_chart(gauge_fig, use_container_width=True)
+
+        # Add transparency expandable
+        with st.expander("How is this score calculated?"):
+            explanation = generate_performance_score_explanation(gaps, performance_score)
+            st.markdown(explanation)
+
+    with col3:
+        # Metric count cards
+        st.markdown("""
+        <div style="margin-top: 30px;">
+        """, unsafe_allow_html=True)
+
+        # Critical issues
+        st.markdown(f"""
+        <div style="padding: 15px; background-color: rgba(220, 53, 69, 0.1); border-left: 4px solid #DC3545; margin-bottom: 10px; border-radius: 4px;">
+            <div style="font-size: 24px; font-weight: bold; color: #DC3545;">{metric_counts['critical']}</div>
+            <div style="font-size: 14px; opacity: 0.7;">Critical Issues (&gt;15% below)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Warning issues
+        st.markdown(f"""
+        <div style="padding: 15px; background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid #FFC107; margin-bottom: 10px; border-radius: 4px;">
+            <div style="font-size: 24px; font-weight: bold; color: #FF8C00;">{metric_counts['warning']}</div>
+            <div style="font-size: 14px; opacity: 0.7;">Areas for Improvement (5-15% below)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Good metrics
+        st.markdown(f"""
+        <div style="padding: 15px; background-color: rgba(40, 167, 69, 0.1); border-left: 4px solid #28A745; border-radius: 4px;">
+            <div style="font-size: 24px; font-weight: bold; color: #28A745;">{metric_counts['good']}</div>
+            <div style="font-size: 14px; opacity: 0.7;">Performing Well</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.divider()
+
+    # ============================================================
+    # SECTION 2: Benchmark Comparison Dashboard
+    # ============================================================
+    st.markdown("### Benchmark Comparison")
+    st.markdown("**How your key metrics compare to industry benchmarks:**")
+
+    # Create comparison charts for strategic KPIs
+    kpi_display = {
+        'avg_ticket': {'name': 'Average Ticket Size (AOV)', 'unit': '$'},
+        'covers': {'name': 'Total Covers', 'unit': ''},
+        'expected_customer_repeat_rate': {'name': 'Customer Repeat Rate', 'unit': '%'}
+    }
+
+    chart_col1, chart_col2, chart_col3 = st.columns(3)
+
+    for idx, (kpi, info) in enumerate(kpi_display.items()):
+        if kpi in gaps:
+            gap_data = gaps[kpi]
+            actual = gap_data['restaurant_value']
+            benchmark = gap_data['benchmark_value']
+            gap_pct = gap_data['gap_pct']
+
+            # Convert to percentage if needed
+            if info['unit'] == '%':
+                actual_display = actual * 100
+                benchmark_display = benchmark * 100
+            else:
+                actual_display = actual
+                benchmark_display = benchmark
+
+            # Create chart
+            fig = create_metric_comparison_chart(
+                info['name'],
+                actual_display,
+                benchmark_display,
+                gap_pct,
+                info['unit']
+            )
+
+            # Display in appropriate column
+            if idx == 0:
+                with chart_col1:
+                    st.plotly_chart(fig, use_container_width=True)
+            elif idx == 1:
+                with chart_col2:
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                with chart_col3:
+                    st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # Original summary section (keep for context)
+    with st.expander("📋 View Detailed Performance Summary"):
+        st.info(analysis['summary'])
 
     # Check if we have combined recommendations or old format
     has_combined = 'strategic_recommendations' in rec_results or 'tactical_recommendations' in rec_results
@@ -314,15 +454,6 @@ def recommendations_page():
         # New combined format
         strategic_recs = rec_results.get('strategic_recommendations', [])
         tactical_recs = rec_results.get('tactical_recommendations', [])
-        priority_actions = rec_results.get('priority_actions', [])
-
-        # Display priority actions if available
-        if priority_actions:
-            st.subheader("Priority Actions")
-            st.markdown("Top recommended actions based on combined strategic and tactical analysis:")
-            for i, action in enumerate(priority_actions, 1):
-                st.markdown(f"**{i}.** {action}")
-            st.divider()
 
         # Combine all recommendations for display
         all_recommendations = []
@@ -400,25 +531,46 @@ def recommendations_page():
         critical_issues = [rec for rec in all_recommendations if rec['severity'] < critical_threshold]
         other_issues = [rec for rec in all_recommendations if rec['severity'] >= critical_threshold]
 
+    # ============================================================
+    # SECTION 3: Deal Recommendations
+    # ============================================================
+    st.markdown("### Deal Recommendations")
+    st.markdown("**Prioritized actions to improve performance:**")
+
     # Always display Critical Issues section
-    st.subheader("Critical Issues")
-    st.markdown("Issues classified as >15% below benchmark")
+    st.markdown("#### 🔴 Critical Issues")
+    st.markdown("_Issues >15% below benchmark requiring immediate attention_")
 
     if critical_issues:
         for i, rec in enumerate(critical_issues, 1):
             # Format title with source indicator
             source_label = f"[{rec.get('source', 'Strategic')}]" if 'source' in rec else ""
-            title = f"**{i}. {rec['business_problem']}** {source_label}"
 
-            with st.expander(title, expanded=True):
+            # Get severity for color coding
+            severity_pct = abs(rec['severity']) if isinstance(rec['severity'], (int, float)) else 15
+
+            # Create colored card header (using rgba for dark mode compatibility)
+            card_color = 'rgba(220, 53, 69, 0.1)' if severity_pct >= 15 else 'rgba(255, 193, 7, 0.1)'
+            border_color = '#DC3545' if severity_pct >= 15 else '#FFC107'
+
+            st.markdown(f"""
+            <div style="background-color: {card_color}; border-left: 5px solid {border_color};
+                        padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+                <h4 style="margin: 0;">{i}. {rec['business_problem']} <small style="opacity: 0.6;">{source_label}</small></h4>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander("📊 View Details & Recommendations", expanded=True):
+                # Visual progress bar showing gap
+                if isinstance(rec['severity'], (int, float)):
+                    st.markdown("**Performance Gap:**")
+                    gap_html = create_gap_progress_bar(rec['severity'], width=300)
+                    st.markdown(gap_html, unsafe_allow_html=True)
+                    st.markdown(f"_{abs(rec['severity']):.1f}% below industry benchmark_")
+                    st.markdown("")  # Spacing
+
                 # Display severity with confidence indicator for tactical recommendations
                 col1, col2 = st.columns([3, 1])
-                with col1:
-                    severity_label = rec.get('severity_label', f"{abs(rec['severity']):.1f}% below benchmark")
-                    if isinstance(rec['severity'], (int, float)):
-                        st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
-                    else:
-                        st.markdown(f"**Severity:** {severity_label}")
 
                 # Add confidence indicator for transaction insights
                 with col2:
@@ -596,20 +748,38 @@ def recommendations_page():
     # Display Other Issues
     if other_issues:
         st.divider()
-        st.subheader("Other Areas for Improvement")
+        st.markdown("#### ⚠️ Other Areas for Improvement")
+        st.markdown("_Opportunities to enhance performance (5-15% below benchmark)_")
 
         for i, rec in enumerate(other_issues, 1):
             # Format title with source indicator
             source_label = f"[{rec.get('source', 'Strategic')}]" if 'source' in rec else ""
 
-            with st.expander(f"**{i}. {rec['business_problem']}** {source_label}"):
+            # Get severity for color coding
+            severity_pct = abs(rec['severity']) if isinstance(rec['severity'], (int, float)) else 10
+
+            # Create colored card header (using rgba for dark mode compatibility)
+            card_color = 'rgba(255, 193, 7, 0.1)'
+            border_color = '#FFC107'
+
+            st.markdown(f"""
+            <div style="background-color: {card_color}; border-left: 5px solid {border_color};
+                        padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+                <h4 style="margin: 0;">{i}. {rec['business_problem']} <small style="opacity: 0.6;">{source_label}</small></h4>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander("📊 View Details & Recommendations"):
+                # Visual progress bar showing gap
+                if isinstance(rec['severity'], (int, float)):
+                    st.markdown("**Performance Gap:**")
+                    gap_html = create_gap_progress_bar(rec['severity'], width=300)
+                    st.markdown(gap_html, unsafe_allow_html=True)
+                    st.markdown(f"_{abs(rec['severity']):.1f}% below industry benchmark_")
+                    st.markdown("")  # Spacing
+
                 # Display severity with confidence indicator for tactical recommendations
                 col1, col2 = st.columns([3, 1])
-                with col1:
-                    if isinstance(rec['severity'], (int, float)):
-                        st.markdown(f"**Severity:** {abs(rec['severity']):.1f}% below benchmark")
-                    else:
-                        st.markdown(f"**Severity:** {rec.get('severity_label', 'Medium')}")
 
                 # Add confidence indicator for transaction insights
                 with col2:
@@ -919,6 +1089,20 @@ def transaction_insights_page():
 
     st.divider()
 
+    # Sample data button
+    st.subheader("Data Upload")
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown("**Option 1: Use Sample Data**")
+        st.markdown("Load pre-formatted sample transaction data to explore the platform.")
+    with col2:
+        if st.button("Use Sample Data", type="secondary"):
+            st.session_state.use_sample_data = True
+            st.rerun()
+
+    st.markdown("**Option 2: Upload Your Own Data**")
+
     # File uploader
     uploaded_file = st.file_uploader(
         "Choose your transaction data CSV file",
@@ -927,16 +1111,36 @@ def transaction_insights_page():
         key="transaction_uploader"
     )
 
+    # Handle sample data loading
+    if st.session_state.get('use_sample_data', False):
+        try:
+            df = pd.read_csv('data/sample_transaction_data.csv')
+            st.success("Sample data loaded successfully!")
+            st.session_state.use_sample_data = False  # Reset flag
+            uploaded_file = 'sample'  # Set flag to process sample data
+        except FileNotFoundError:
+            st.error("Sample data file not found at data/sample_transaction_data.csv")
+            st.session_state.use_sample_data = False
+            return
+        except Exception as e:
+            st.error(f"Error loading sample data: {str(e)}")
+            st.session_state.use_sample_data = False
+            return
+
     if uploaded_file is not None:
         # Show file info
-        st.info(f"File: {uploaded_file.name}")
+        if uploaded_file != 'sample':
+            st.info(f"File: {uploaded_file.name}")
 
-        # Load CSV
-        try:
-            df = pd.read_csv(uploaded_file)
-        except Exception as e:
-            st.error(f"Error reading CSV: {str(e)}")
-            return
+            # Load CSV
+            try:
+                df = pd.read_csv(uploaded_file)
+            except Exception as e:
+                st.error(f"Error reading CSV: {str(e)}")
+                return
+        else:
+            # Sample data already loaded above
+            st.info("File: sample_transaction_data.csv (Sample Data)")
 
         # Validate
         is_valid, error_message, warnings = validate_transaction_csv(df)
@@ -1301,12 +1505,11 @@ def main():
     st.divider()
 
     # Horizontal tabs without emojis - ordered to reflect data pipeline
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Home",
         "Transaction Insights",
         "Dashboard",
-        "Recommendations",
-        "Export Report"
+        "Recommendations"
     ])
 
     with tab1:
@@ -1320,9 +1523,6 @@ def main():
 
     with tab4:
         recommendations_page()
-
-    with tab5:
-        report_page()
 
 
 if __name__ == "__main__":
