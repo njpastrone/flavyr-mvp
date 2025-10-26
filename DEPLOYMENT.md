@@ -44,9 +44,7 @@ The following files have been configured for Streamlit Cloud:
   - `plotly==5.17.0`
   - `fpdf2==2.7.6`
 
-### `packages.txt`
-- System-level dependencies (currently none needed)
-- Placeholder file for future system packages
+**Note:** No `packages.txt` file is needed - all dependencies are Python packages. Streamlit Cloud will automatically install everything from `requirements.txt`.
 
 ## Database Handling
 

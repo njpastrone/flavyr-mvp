@@ -1,2 +1,0 @@
-# System dependencies for Streamlit Cloud
-# Currently no system packages required - all Python dependencies in requirements.txt
