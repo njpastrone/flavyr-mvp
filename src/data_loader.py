@@ -8,11 +8,18 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
+import os
 from utils.validators import validate_restaurant_csv
 
 
-# Database path
-DB_PATH = Path(__file__).parent.parent / 'database' / 'flavyr.db'
+# Database path - use temp directory for Streamlit Cloud
+# Streamlit Cloud has an ephemeral filesystem, so we use /tmp
+if os.environ.get('STREAMLIT_SHARING_MODE') or os.environ.get('STREAMLIT_CLOUD'):
+    DB_PATH = Path('/tmp') / 'flavyr.db'
+else:
+    DB_PATH = Path(__file__).parent.parent / 'database' / 'flavyr.db'
+    # Ensure database directory exists locally
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Data file paths
 BENCHMARK_DATA_PATH = Path(__file__).parent.parent / 'data' / 'sample_industry_benchmark_data.csv'

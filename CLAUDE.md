@@ -219,9 +219,30 @@ Reports (PDF/HTML export)
 - Traceable and extensible architecture
 - Matches restaurant operators' mental model (transactions first)
 
+## Deployment
+
+**Status:** Ready for Streamlit Community Cloud deployment
+
+The application is fully configured for cloud hosting:
+- Database auto-configures for ephemeral filesystem (/tmp)
+- All dependencies pinned in requirements.txt
+- Streamlit configuration in .streamlit/config.toml
+- Upload size limit: 200MB
+- No system packages required
+
+**Quick Deploy:**
+1. Visit https://share.streamlit.io
+2. Connect GitHub account
+3. Select repository: `njpastrone/flavyr-mvp`
+4. Main file: `app.py`
+5. Deploy
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
+
 ## Next Steps
 
-1. **Pilot Testing** - Deploy to 3-5 NYC restaurants
-2. **Feedback Collection** - Gather insights on usability and accuracy
-3. **Iteration** - Refine based on pilot feedback
-4. **Phase 2 Planning** - Prepare for Smart Clustering implementation
+1. **Deploy to Cloud** - Launch on Streamlit Community Cloud
+2. **Pilot Testing** - Share with 3-5 NYC restaurants
+3. **Feedback Collection** - Gather insights on usability and accuracy
+4. **Iteration** - Refine based on pilot feedback
+5. **Phase 2 Planning** - Prepare for Smart Clustering implementation

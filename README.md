@@ -88,6 +88,22 @@ Run the test script to validate functionality:
 python test_app.py
 ```
 
+## Deployment
+
+This application is ready for deployment on Streamlit Community Cloud.
+
+### Quick Deploy
+
+1. Visit https://share.streamlit.io
+2. Connect your GitHub account
+3. Select repository: `njpastrone/flavyr-mvp`
+4. Main file: `app.py`
+5. Click "Deploy!"
+
+Your app will be live at `https://[your-subdomain].streamlit.app`
+
+For detailed deployment instructions, troubleshooting, and configuration details, see [DEPLOYMENT.md](DEPLOYMENT.md)
+
 ## Project Structure
 
 ```
