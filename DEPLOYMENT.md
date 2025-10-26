@@ -39,10 +39,14 @@ The following files have been configured for Streamlit Cloud:
 
 ### `requirements.txt`
 - Pinned versions for reproducibility:
-  - `streamlit==1.28.0`
-  - `pandas==2.0.3`
-  - `plotly==5.17.0`
-  - `fpdf2==2.7.6`
+  - `streamlit==1.39.0` (latest stable)
+  - `pandas==2.2.3`
+  - `plotly==5.24.1`
+  - `fpdf2==2.8.1`
+
+### `.python-version`
+- Specifies Python 3.11 for Streamlit Cloud
+- Ensures consistent environment across deployments
 
 **Note:** No `packages.txt` file is needed - all dependencies are Python packages. Streamlit Cloud will automatically install everything from `requirements.txt`.
 
