@@ -1116,8 +1116,12 @@ def transaction_insights_page():
         try:
             df = pd.read_csv('data/sample_transaction_data.csv')
             st.success("Sample data loaded successfully!")
-            st.session_state.use_sample_data = False  # Reset flag
-            uploaded_file = 'sample'  # Set flag to process sample data
+
+            # Store in session state for persistence across reruns
+            st.session_state.sample_transaction_df = df
+            st.session_state.is_sample_data_loaded = True
+            st.session_state.use_sample_data = False  # Reset trigger
+
         except FileNotFoundError:
             st.error("Sample data file not found at data/sample_transaction_data.csv")
             st.session_state.use_sample_data = False
@@ -1126,6 +1130,18 @@ def transaction_insights_page():
             st.error(f"Error loading sample data: {str(e)}")
             st.session_state.use_sample_data = False
             return
+
+    # Check for sample data in session state
+    if st.session_state.get('is_sample_data_loaded', False) and uploaded_file is None:
+        # User is using sample data - retrieve from session state
+        df = st.session_state.sample_transaction_df
+        uploaded_file = 'sample'  # Set flag to enter processing block
+
+    # Clear sample data if user uploads new file
+    if uploaded_file is not None and uploaded_file != 'sample':
+        st.session_state.is_sample_data_loaded = False
+        if 'sample_transaction_df' in st.session_state:
+            del st.session_state.sample_transaction_df
 
     if uploaded_file is not None:
         # Show file info
@@ -1139,7 +1155,7 @@ def transaction_insights_page():
                 st.error(f"Error reading CSV: {str(e)}")
                 return
         else:
-            # Sample data already loaded above
+            # Sample data retrieved from session state
             st.info("File: sample_transaction_data.csv (Sample Data)")
 
         # Validate
